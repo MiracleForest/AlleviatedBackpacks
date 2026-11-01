@@ -1012,7 +1012,7 @@ public:
 std::unordered_map<std::int64_t, std::chrono::steady_clock::time_point> gLastTold;
 
 /// Link shown to players without the client mod (also in README.md).
-constexpr std::string_view kClientModUrl = "https://github.com/LiteLDev/AlleviatedBackpacks/releases";
+constexpr std::string_view kClientModUrl = "https://github.com/MiracleForest/AlleviatedBackpacks/releases";
 
 /// Backpack screens need the client mod: companions get native screens, simulated players
 /// (selftests) the chest, everybody else a message.

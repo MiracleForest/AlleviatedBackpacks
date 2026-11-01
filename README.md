@@ -2,8 +2,8 @@
 
 <img src="docs/logo.png" alt="" width="128" align="right">
 
-[![Release](https://img.shields.io/github/v/release/LiteLDev/AlleviatedBackpacks)](https://github.com/LiteLDev/AlleviatedBackpacks/releases)
-[![License](https://img.shields.io/github/license/LiteLDev/AlleviatedBackpacks)](COPYING.LESSER)
+[![Release](https://img.shields.io/github/v/release/MiracleForest/AlleviatedBackpacks)](https://github.com/MiracleForest/AlleviatedBackpacks/releases)
+[![License](https://img.shields.io/github/license/MiracleForest/AlleviatedBackpacks)](COPYING.LESSER)
 
 Backpacks with upgrades for **Minecraft Bedrock Edition**: the gameplay of the Java mod
 [Sophisticated Backpacks](https://www.curseforge.com/minecraft/mc-mods/sophisticated-backpacks),
@@ -52,7 +52,7 @@ lip install github.com/LiteLDev/AlleviatedBackpacks#client   # players: in the g
 lip install github.com/LiteLDev/AlleviatedBackpacks          # servers: in the server folder
 ```
 
-Or download from the [latest release](https://github.com/LiteLDev/AlleviatedBackpacks/releases/latest):
+Or download from the [latest release](https://github.com/MiracleForest/AlleviatedBackpacks/releases/latest):
 
 - **Players:** `alleviatedbackpacks-client-windows-x64.zip`. In LeviLauncher, extract it so that the
   `AlleviatedBackpacks` folder lands in the game version's `mods` folder. Every local world gets the

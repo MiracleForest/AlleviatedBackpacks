@@ -18,7 +18,7 @@ $script:BaseVersion  = if ($env:ABP_E2E_CLIENT_VERSION) { $env:ABP_E2E_CLIENT_VE
 # would make a normally started game ignore the real mouse and keyboard).
 $script:KeepMods     = @('LeviLamina', 'CrashLogger', $script:ModName, 'LeviHeadlessInput')
 $script:OutRoot      = Join-Path $PSScriptRoot 'out'
-# LeviHeadlessInput (https://github.com/LiteLDev/LeviHeadlessInput, cloned and built in
+# LeviHeadlessInput (https://github.com/LiteLDev/BeDD, cloned and built in
 # %USERPROFILE%\Desktop\LeviHeadlessInput by default): a test-only client
 # mod that lets run.ps1 drive the game through a control pipe instead of the real mouse and
 # keyboard. Its build output (DLL, HeadlessInput.psm1, harness-shim.ps1, ...) is taken from here.
