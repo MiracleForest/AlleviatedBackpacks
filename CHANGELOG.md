@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-01
+
 ### Changed
 
 - The repository moved to [MiracleForest/AlleviatedBackpacks](https://github.com/MiracleForest/AlleviatedBackpacks); links point there now.
@@ -60,6 +62,7 @@ build, in single player and on a server.
 - **Commands**: `/backpack` (alias `/abp`) and `/sbp` (alias `/sophisticatedbackpacks`).
 - English and Simplified Chinese; the GUI follows each player's language.
 
-[Unreleased]: https://github.com/MiracleForest/AlleviatedBackpacks/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/MiracleForest/AlleviatedBackpacks/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/MiracleForest/AlleviatedBackpacks/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/MiracleForest/AlleviatedBackpacks/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/MiracleForest/AlleviatedBackpacks/releases/tag/v0.1.0
