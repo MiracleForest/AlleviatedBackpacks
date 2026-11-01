@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The repository moved to [MiracleForest/AlleviatedBackpacks](https://github.com/MiracleForest/AlleviatedBackpacks); links point there now. The lip package path stays `github.com/LiteLDev/AlleviatedBackpacks`.
+- The repository moved to [MiracleForest/AlleviatedBackpacks](https://github.com/MiracleForest/AlleviatedBackpacks); links point there now.
+- The lip package is now `github.com/MiracleForest/AlleviatedBackpacks`, and its [LeviMC Mods page](https://levimc.org/mods/github.com/MiracleForest/AlleviatedBackpacks/) moves with it. Installing by the new path needs lip 0.35.0 or later. To move an existing install, run `lip update` with a lip that supports renamed packages, or run `lip uninstall github.com/LiteLDev/AlleviatedBackpacks[#client]` and then `lip install github.com/MiracleForest/AlleviatedBackpacks[#client]`; the config in `plugins/AlleviatedBackpacks/config/` (server) or `mods/AlleviatedBackpacks/config/` (client) is kept. Versions up to 0.1.1 stay installable at the old path.
 
 ## [0.1.1] - 2026-10-24
 

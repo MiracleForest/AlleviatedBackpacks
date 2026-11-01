@@ -59,7 +59,7 @@ the Shift contents tooltip, while every item move is still done by the server.
 ### Showcase media
 
 The screenshots and videos in `docs/showcase/` (README and the
-[LeviMC Mods gallery](https://levimc.org/mods/github.com/LiteLDev/AlleviatedBackpacks/?tab=gallery),
+[LeviMC Mods gallery](https://levimc.org/mods/github.com/MiracleForest/AlleviatedBackpacks/?tab=gallery),
 listed in `docs/showcase/showcase.json`) come from the client scenario `showcase`:
 
 ```powershell
