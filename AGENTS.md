@@ -162,7 +162,7 @@ Releasing: the mod and pack versions come from the latest `v*` tag (`git describ
 0.0.0). Move *Unreleased* in `CHANGELOG.md` to `## [x.y.z] - <date>`, bump `tooth.json` `version`,
 merge, then push the tag `vx.y.z`: `.github/workflows/release.yml` builds both targets, checks the
 versions, and publishes `alleviatedbackpacks-{server,client}-windows-x64.zip` with that changelog
-section as notes. lip: `lip install github.com/LiteLDev/AlleviatedBackpacks[#client]`.
+section as notes. lip: `lip install github.com/MiracleForest/AlleviatedBackpacks[#client]`.
 
 Deploying by hand: copy `bin/server/AlleviatedBackpacks` to `<BDS>/plugins/` (LeviLamina's BDS mod
 folder is `plugins`), or `bin/client/AlleviatedBackpacks` to

@@ -48,8 +48,8 @@ needs the **server** mod. Use the same version on both.
 With [lip](https://github.com/LiteLDev/lip):
 
 ```sh
-lip install github.com/LiteLDev/AlleviatedBackpacks#client   # players: in the game folder
-lip install github.com/LiteLDev/AlleviatedBackpacks          # servers: in the server folder
+lip install github.com/MiracleForest/AlleviatedBackpacks#client   # players: in the game folder
+lip install github.com/MiracleForest/AlleviatedBackpacks          # servers: in the server folder
 ```
 
 Or download from the [latest release](https://github.com/MiracleForest/AlleviatedBackpacks/releases/latest):
@@ -110,7 +110,7 @@ Running a server? Every command and config key is listed in [docs/ADMIN.md](docs
 
 ## More
 
-More screenshots and videos: https://levimc.org/mods/github.com/LiteLDev/AlleviatedBackpacks/?tab=gallery
+More screenshots and videos: https://levimc.org/mods/github.com/MiracleForest/AlleviatedBackpacks/?tab=gallery
 
 Building it yourself, or writing a mod against its energy and fluid API? See
 [CONTRIBUTING.md](CONTRIBUTING.md).
