@@ -28,7 +28,9 @@
 #include "mc/world/containers/ContainerEnumName.h"
 #include "mc/world/containers/ContainerFactory.h"
 #include "mc/world/containers/FullContainerName.h"
+#if ABP_LL_VERSION >= 2660
 #include "mc/world/containers/managers/controllers/ContainerManagerController.h"
+#endif
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/item/ItemStackBase.h"
 
@@ -42,17 +44,22 @@ namespace abp::tiers {
 
 namespace {
 
-/// The UI collection name of a container among the collections the screen has (the vanilla UI
-/// names when it has none).
+/// The UI collection name of a container (the vanilla UI names when it is not found).
 ///
-/// The game's own ContainerEnumName-to-name map is not callable on every LeviLamina line, so walk
-/// the screen's container manager and ask the factory what each of its names stands for.
-std::string collectionName(ContainerScreenController const& self, ContainerEnumName e) {
+/// On 26.51 this is the game's ContainerEnumName-to-name map. That map is not callable on 26.60, so
+/// there the screen's container manager is walked and the factory is asked what each of its names
+/// stands for.
+std::string collectionName([[maybe_unused]] ContainerScreenController const& self, ContainerEnumName e) {
+#if ABP_LL_VERSION >= 2660
     if (auto const* mgr = self.mContainerManagerController.get()) {
         for (auto const& entry : mgr->mContainers.get()) {
             if (ContainerFactory::getContainerEnumName(entry.first).mName == e) return entry.first;
         }
     }
+#else
+    auto const& names = ContainerCollectionNameMap();
+    if (auto it = names.find(e); it != names.end()) return it->second;
+#endif
     switch (e) {
     case ContainerEnumName::CraftingInputContainer:
         return "crafting_input_items";

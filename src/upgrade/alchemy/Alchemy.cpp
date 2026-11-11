@@ -61,6 +61,11 @@ ABP_REGISTER_CONFIG("alchemy", abp::upgrade::alchemy::AlchemyConfig);
 // std::vector<MobEffectInstance> needs a copy constructor for its growth path, and the game does not
 // export one on 26.60. The only such vector here reserves its storage before it is filled, so it
 // never grows: this definition only satisfies the linker and is never reached.
+//
+// WARNING: this definition satisfies the linker for EVERY copy of a MobEffectInstance in the whole
+// mod, not only this vector. On 26.60, never copy one (`auto e = *actor.getEffect(id)`, copying the
+// vector of getAllEffects(), push_back of an lvalue, a vector that may grow, ...): it links, and then
+// aborts the game at run time. Read effects through references and build new instances in place.
 MobEffectInstance::MobEffectInstance(MobEffectInstance const&) { std::abort(); }
 #endif
 

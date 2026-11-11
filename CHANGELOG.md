@@ -24,11 +24,8 @@ First beta of 0.2.0. Please report anything that behaves differently from 0.1.2.
   - LeviLamina 26.60 servers load mods from `mods/` instead of `plugins/`, so the server build of the 26.60 line goes to `mods/AlleviatedBackpacks/`, with its config in `mods/AlleviatedBackpacks/config/`. When you move a server from 26.51 to 26.60, copy your config over from `plugins/AlleviatedBackpacks/config/`. The `26_51` variant still installs into `plugins/AlleviatedBackpacks/`.
   - Your config in `mods/AlleviatedBackpacks/config/` (game) or `plugins/AlleviatedBackpacks/config/` (26.51 server) is kept on update.
 - The downloads are now lip mod archives: the files sit at the root of the ZIP instead of inside an `AlleviatedBackpacks/` folder. Extract one into `mods/AlleviatedBackpacks/` (or `plugins/AlleviatedBackpacks/` on a 26.51 server), not into `mods/`.
-
-### Fixed
-
-- On Minecraft 1.26.60, the burn time of fuels for the Smelting, Smoking and Blasting upgrades comes from the game's fuel table and the item's `minecraft:fuel` component, because the call used for it on 1.26.51 is gone from 1.26.60.
-- The crafting and smithing result previews of backpack recipes find the screen's input slots by asking the game what each of the screen's collections is, instead of through a lookup table that 1.26.60 no longer offers. They work the same on both versions.
+- On Minecraft 1.26.60, the burn time of fuels for the Smelting, Smoking and Blasting upgrades comes from the game's fuel table and the item's `minecraft:fuel` component, because the call used for it on 1.26.51 is gone from 1.26.60. Nothing changes on 1.26.51.
+- On Minecraft 1.26.60, the crafting and smithing result previews of backpack recipes find the screen's input slots by asking the game what each of the screen's collections is, because the lookup table used for it on 1.26.51 is gone from 1.26.60. Nothing changes on 1.26.51.
 
 ## [0.1.2] - 2026-11-01
 
