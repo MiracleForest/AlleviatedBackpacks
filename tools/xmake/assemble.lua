@@ -13,9 +13,11 @@
 
 import("core.base.json")
 
-local function mod_version()
-    local tag = try { function () return os.iorun("git describe --tags --abbrev=0 --always") end }
-    local major, minor, patch = (tag or ""):match("v(%d+)%.(%d+)%.(%d+)")
+-- The mod version is the "version" of manifest.json (also the version in lip.toml and the release
+-- tag). Packs take its major.minor.patch, without a prerelease suffix such as "-beta.1".
+local function mod_version(projectdir)
+    local version = json.loadfile(path.join(projectdir, "manifest.json")).version or ""
+    local major, minor, patch = version:match("^(%d+)%.(%d+)%.(%d+)")
     return tonumber(major) or 0, tonumber(minor) or 0, tonumber(patch) or 0
 end
 
@@ -126,12 +128,11 @@ function main(target, target_type)
     os.cp(targetfile, path.join(outdir, path.filename(targetfile)))
     local pdb = path.join(path.directory(targetfile), path.basename(targetfile) .. ".pdb")
     if os.isfile(pdb) then os.cp(pdb, path.join(outdir, path.basename(targetfile) .. ".pdb")) end
-    local major, minor, patch = mod_version()
+    local major, minor, patch = mod_version(projectdir)
     local manifest = io.readfile(path.join(projectdir, "manifest.json"))
     local vars = {
         modName = "AlleviatedBackpacks",
         modFile = path.filename(targetfile),
-        modVersion = string.format("%d.%d.%d", major, minor, patch),
         modPlatform = target_type,
     }
     manifest = manifest:gsub("%${(.-)}", function (k) return vars[k] or ("${" .. k .. "}") end)

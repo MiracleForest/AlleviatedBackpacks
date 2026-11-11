@@ -339,6 +339,21 @@ LL_TYPE_INSTANCE_HOOK(
     return result;
 }
 
+#if ABP_LL_VERSION >= 2660
+// CraftHandlerBase::handleCraftAction is gone from 26.60. Only the crafting handler ever has a
+// pending linker craft, so start where it handles the craft action.
+LL_TYPE_INSTANCE_HOOK(
+    LinkerCraftStartHook,
+    ll::memory::HookPriority::High,
+    CraftHandlerCrafting,
+    &CraftHandlerCrafting::$_handleCraftAction,
+    ItemStackNetResult,
+    ItemStackRequestActionCraftBase const& requestAction
+) {
+    gPending.erase(this);
+    return origin(requestAction);
+}
+#else
 LL_TYPE_INSTANCE_HOOK(
     LinkerCraftStartHook,
     ll::memory::HookPriority::High,
@@ -351,6 +366,7 @@ LL_TYPE_INSTANCE_HOOK(
     gPending.erase(this);
     return origin(requestAction, currentResult);
 }
+#endif
 
 LL_TYPE_INSTANCE_HOOK(LinkerCraftPostHook, ll::memory::HookPriority::High, CraftHandlerBase, &CraftHandlerBase::postRequest, void, bool wasSuccess) {
     origin(wasSuccess);

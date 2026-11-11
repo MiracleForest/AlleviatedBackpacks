@@ -1811,7 +1811,8 @@ bool owns(UIScene const* scene) { return gScene.scene && gScene.scene.get() == s
 ISceneStack* sceneStack() {
     auto* client = currentClient();
     if (!client) return nullptr;
-    return client->getSceneFactory().getCurrentSceneStack().get();
+    // ClientInstance has the accessor on every supported line; SceneFactory lost it in 26.60.
+    return client->getCurrentSceneStack().get();
 }
 
 void dropScene(bool byPlayer) {
@@ -1845,7 +1846,7 @@ void pushScene() {
     gScene.closedSession = closed;
     gScene.scene    = std::move(scene);
     gScene.openedAt = Clock::now();
-    client->getSceneFactory().getCurrentSceneStack()->pushScreen(gScene.scene, false);
+    client->getCurrentSceneStack()->pushScreen(gScene.scene, false);
 }
 
 /// Per-frame: push the scene for a new screen model, pop it when the model is gone.

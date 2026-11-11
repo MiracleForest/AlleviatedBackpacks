@@ -3,6 +3,7 @@
 
 #include "upgrade/alchemy/Alchemy.h"
 
+#include <cstdlib>
 #include <algorithm>
 #include <cmath>
 #include <exception>
@@ -22,6 +23,10 @@
 #include "mc/util/VariantParameterList.h"
 #include "mc/world/actor/Actor.h"
 #include "mc/world/actor/ActorCategory.h"
+#if ABP_LL_VERSION >= 2660
+#include "mc/util/NamedMolangScript.h" // completes ActorDefinitionDescriptor
+#include "mc/world/actor/ActorDefinitionDescriptor.h"
+#endif
 #include "mc/world/actor/ActorFlags.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/player/Player.h"
@@ -51,6 +56,18 @@
 #include "upgrade/inception/Inception.h"
 
 ABP_REGISTER_CONFIG("alchemy", abp::upgrade::alchemy::AlchemyConfig);
+
+#if ABP_LL_VERSION >= 2660
+// std::vector<MobEffectInstance> needs a copy constructor for its growth path, and the game does not
+// export one on 26.60. The only such vector here reserves its storage before it is filled, so it
+// never grows: this definition only satisfies the linker and is never reached.
+//
+// WARNING: this definition satisfies the linker for EVERY copy of a MobEffectInstance in the whole
+// mod, not only this vector. On 26.60, never copy one (`auto e = *actor.getEffect(id)`, copying the
+// vector of getAllEffects(), push_back of an lvalue, a vector that may grow, ...): it links, and then
+// aborts the game at run time. Read effects through references and build new instances in place.
+MobEffectInstance::MobEffectInstance(MobEffectInstance const&) { std::abort(); }
+#endif
 
 namespace abp::upgrade::alchemy {
 
@@ -317,11 +334,21 @@ void splash(Actor& target, core::ItemStackData const& stack) {
     }
     // levelEvent(2002) at the potion: splash particles in the potion colour + the break sound.
     std::vector<MobEffectInstance> instances;
+#if ABP_LL_VERSION >= 2660
+    // MobEffectInstance cannot be copied on 26.60 (its copy constructor is not exported): build the
+    // instances in place, in storage reserved up front so the vector never moves them.
+    instances.reserve(effects.size());
+    for (auto const& e : effects) {
+        auto& inst      = instances.emplace_back(static_cast<uint>(e.id), EffectDuration{e.duration});
+        inst.mAmplifier = e.amplifier;
+    }
+#else
     for (auto const& e : effects) {
         MobEffectInstance inst(static_cast<uint>(e.id), EffectDuration{e.duration});
         inst.mAmplifier = e.amplifier;
         instances.push_back(inst);
     }
+#endif
     int color = static_cast<int>(MobEffectInstance::getAverageColorValue(instances).toARGB());
     level.broadcastLevelEvent(SharedTypes::Legacy::LevelEvent::ParticlesPotionSplash, impact, color, nullptr);
     level.playSound(SharedTypes::Legacy::LevelSoundEvent::Glass, impact, 1.0f, nextFloat() * 0.1f + 0.9f);
@@ -396,7 +423,12 @@ core::ItemStackData finishUsing(Kind kind, core::ItemStackData const& stack, Act
         if (isZombieVillager(target) && hasEffect(target, effect::Weakness)) {
             VariantParameterList params{};
             params.mSelf = &target;
+#if ABP_LL_VERSION >= 2660
+            // Actor::executeEvent is not exported for the client on 26.60; it forwards to this.
+            (void)ActorDefinitionDescriptor::executeEvent(target, "minecraft:start_transforming", params);
+#else
             (void)target.executeEvent("minecraft:start_transforming", params);
+#endif
             return {};
         }
         [[fallthrough]];

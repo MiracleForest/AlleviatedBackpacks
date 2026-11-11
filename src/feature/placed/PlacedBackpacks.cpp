@@ -79,6 +79,33 @@ private:
 };
 
 namespace {
+
+/// No entity that blocks building stands in `box` (BlockSource::isUnobstructedByEntities, which
+/// LeviLamina 26.60 no longer has: the same check over the entities in the box).
+bool unobstructedByEntities(BlockSource& region, AABB const& box) {
+#if ABP_LL_VERSION >= 2660
+    for (Actor* actor : region.fetchEntities(nullptr, box, true, false)) {
+        if (actor && actor->isAlive() && actor->mBlocksBuilding) return false;
+    }
+    return true;
+#else
+    return region.isUnobstructedByEntities(box, nullptr);
+#endif
+}
+
+/// Tells the six neighbours of `pos` that it changed (comparators re-read their input).
+void updateNeighbors(BlockSource& region, BlockPos const& pos) {
+#if ABP_LL_VERSION >= 2660
+    // BlockSource::updateNeighborsAt takes a NeighborChangeHistory on 26.60, which cannot be
+    // made outside the game; notify each neighbour the way it does.
+    for (auto const& offset : Facing::DIRECTION()) {
+        BlockPos const neighbor = pos + offset;
+        region.getBlock(neighbor).neighborChanged(region, neighbor, pos);
+    }
+#else
+    region.updateNeighborsAt(pos);
+#endif
+}
 constexpr std::string_view kDbKey         = "abp:placed";
 constexpr int              kDataVersion   = 1;
 constexpr std::int64_t     kActionCooldown = 5;    ///< ticks: SB puts a 5 tick item cooldown on a picked up backpack; also debounces repeated use events
@@ -533,7 +560,7 @@ bool PlacedBackpacks::placeFromHand(Player& player, BlockPos const& clicked, int
         if (face < 0 || face > 5) return false;
         target = clicked + Facing::DIRECTION()[static_cast<std::size_t>(face)];
     }
-    if (!region.isUnobstructedByEntities(AABB(target), nullptr)) {
+    if (!unobstructedByEntities(region, AABB(target))) {
         player.sendMessage(trFor(player, "abp.placed.blocked", "There is no room for the backpack here."));
         return false;
     }
@@ -641,7 +668,7 @@ PlacedBackpacks::PlaceResult
 PlacedBackpacks::placeFromDispenser(BlockSource& region, BlockPos const& target, int dispenserFace, ItemStack& item) {
     if (!game::isBackpack(item)) return PlaceResult::NotBackpack;
     // SB DirectionalPlaceContext.canPlace + Level.isUnobstructed: replaceable and no entity in the way.
-    if (!region.isUnobstructedByEntities(AABB(target), nullptr)) return PlaceResult::Blocked;
+    if (!unobstructedByEntities(region, AABB(target))) return PlaceResult::Blocked;
     auto result = place(region, target, item, facingForDispenser(dispenserFace));
     if (result == PlaceResult::Ok) playSoundAt(region, target, "use.cloth", kWoolVolume, kWoolPitch);
     return result;
@@ -865,7 +892,7 @@ void PlacedBackpacks::maintain(BlockSource& region, PlacedEntry const& e, std::s
     int signal = comparatorSignal(region, pos); // with Inception: the backpacks inside too
     if (auto it = mSignals.find(e.loc); it == mSignals.end() || it->second != signal) {
         mSignals[e.loc] = signal;
-        region.updateNeighborsAt(pos);
+        updateNeighbors(region, pos);
     }
     // The display entity wearing the backpack and holding the displayed item.
     auto                     item = itemOf(e);

@@ -170,7 +170,7 @@ void onScreenChanged(ScreenListener fn) { gListeners.push_back(std::move(fn)); }
 
 class WelcomeHandler : public ll::network::PacketHandlerBase<WelcomeHandler, WelcomePacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, WelcomePacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM WelcomePacket const& p) const {
         if (!fromServer(cb)) return;
         if (!p.valid() || p.body.value("incompatible", false)) {
             if (!gState.incompatible) {
@@ -187,7 +187,7 @@ public:
 
 class ScreenOpenHandler : public ll::network::PacketHandlerBase<ScreenOpenHandler, ScreenOpenPacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ScreenOpenPacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM ScreenOpenPacket const& p) const {
         if (!fromServer(cb) || !p.valid()) return;
         gState.screen = core::screen::BackpackScreenModel::fromJson(p.body);
         gState.closing.reset();
@@ -204,7 +204,7 @@ public:
 
 class ScreenUpdateHandler : public ll::network::PacketHandlerBase<ScreenUpdateHandler, ScreenUpdatePacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ScreenUpdatePacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM ScreenUpdatePacket const& p) const {
         if (!fromServer(cb) || !p.valid() || !gState.screen) return;
         if (p.body.value("session", 0u) != gState.screen->session) return;
         if (!core::screen::applyPatch(*gState.screen, p.body.value("patch", nlohmann::json::object()))) {
@@ -217,7 +217,7 @@ public:
 
 class ScreenCloseHandler : public ll::network::PacketHandlerBase<ScreenCloseHandler, ScreenClosePacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ScreenClosePacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM ScreenClosePacket const& p) const {
         if (!fromServer(cb) || !p.valid()) return;
         dropScreen(p.body.value("session", 0u));
     }
@@ -225,7 +225,7 @@ public:
 
 class ContentsHandler : public ll::network::PacketHandlerBase<ContentsHandler, ContentsPacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ContentsPacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM ContentsPacket const& p) const {
         if (!fromServer(cb) || !p.valid()) return;
         auto m = core::screen::ContentsModel::fromJson(p.body);
         if (m.uuid.empty()) return;
@@ -237,7 +237,7 @@ public:
 
 class RenderInfoHandler : public ll::network::PacketHandlerBase<RenderInfoHandler, RenderInfoPacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, RenderInfoPacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM RenderInfoPacket const& p) const {
         if (!fromServer(cb) || !p.valid()) return;
         auto r = core::screen::RenderInfo::fromJson(p.body);
         if (r.uuid.empty()) return;

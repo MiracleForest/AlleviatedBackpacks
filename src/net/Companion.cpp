@@ -92,7 +92,7 @@ Player* senderOf(NetworkIdentifier const& source, NetEventCallback& callback, Su
 
 class HelloHandler : public ll::network::PacketHandlerBase<HelloHandler, HelloPacket> {
 public:
-    void handlePacket(NetworkIdentifier const& source, NetEventCallback& callback, HelloPacket const& packet) const {
+    void handlePacket(NetworkIdentifier const& source, NetEventCallback& callback, ABP_PACKET_SIDE_PARAM HelloPacket const& packet) const {
         auto* player = senderOf(source, callback, packet.mSenderSubId);
         if (!player) return;
         if (!packet.valid()) {

@@ -35,6 +35,15 @@ ABP_REGISTER_CONFIG("toolswapper", abp::upgrade::toolswapper::ToolSwapperConfig)
 namespace abp::upgrade::toolswapper {
 
 namespace {
+/// The block's hardness (its destroy time; negative for unbreakable blocks).
+float blockHardness(Block const& block) {
+#if ABP_LL_VERSION >= 2660
+    // BlockType::getDestroySpeed() is gone from 26.60; the block's own component data holds it.
+    return block.mDirectData->mDestroySpeed;
+#else
+    return block.getBlockType().getDestroySpeed();
+#endif
+}
 
 constexpr float kReach = 5.5f;
 
@@ -205,7 +214,7 @@ bool correctTool(ItemStack const& stack, Block const& block) {
 } // namespace
 
 float destroyProgress(ItemStack const& stack, Block const& block) {
-    float hardness = block.getBlockType().getDestroySpeed();
+    float hardness = blockHardness(block);
     if (hardness < 0) return 0.0f;
     if (hardness == 0) return 1.0f;
     float speed = destroySpeed(stack, block);
@@ -305,7 +314,7 @@ bool blockClick(UpgradeContext const& ctx, Player& player, BlockPos const& pos) 
     auto& state = ctx.transient<State>();
     float mainSpeed = 0;
     if (goodAtBreaking(held, block)) {
-        if (state.lastMinedBlock == block.getTypeName() || block.getBlockType().getDestroySpeed() == 0) return true;
+        if (state.lastMinedBlock == block.getTypeName() || blockHardness(block) == 0) return true;
         mainSpeed = destroySpeed(held, block);
     }
     state.lastMinedBlock = block.getTypeName();

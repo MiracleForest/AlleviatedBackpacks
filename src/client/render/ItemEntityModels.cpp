@@ -308,7 +308,14 @@ LL_TYPE_INSTANCE_HOOK(
                 // The render position is camera relative: back to world space.
                 Vec3 const& rel = renderData.position;
                 Vec3        cam = toCameraSpace(renderContext, Vec3{0.f, 0.f, 0.f});
-                if (ground(*item, renderContext.getFrameAlpha(*item), Vec3{rel.x - cam.x, rel.y - cam.y, rel.z - cam.z})) return;
+#if ABP_LL_VERSION >= 2660
+                // BaseActorRenderContext::getFrameAlpha(Actor const&) is gone; the context's own
+                // frame alpha is the one every actor of the frame is interpolated with.
+                float const alpha = renderContext.mFrameAlpha;
+#else
+                float const alpha = renderContext.getFrameAlpha(*item);
+#endif
+                if (ground(*item, alpha, Vec3{rel.x - cam.x, rel.y - cam.y, rel.z - cam.z})) return;
             }
         }
     }

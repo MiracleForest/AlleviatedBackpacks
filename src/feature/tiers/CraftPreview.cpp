@@ -28,6 +28,9 @@
 #include "mc/world/containers/ContainerEnumName.h"
 #include "mc/world/containers/ContainerFactory.h"
 #include "mc/world/containers/FullContainerName.h"
+#if ABP_LL_VERSION >= 2660
+#include "mc/world/containers/managers/controllers/ContainerManagerController.h"
+#endif
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/item/ItemStackBase.h"
 
@@ -41,10 +44,22 @@ namespace abp::tiers {
 
 namespace {
 
-/// The UI collection name of a container (the game's map; the vanilla UI names when it is empty).
-std::string collectionName(ContainerEnumName e) {
+/// The UI collection name of a container (the vanilla UI names when it is not found).
+///
+/// On 26.51 this is the game's ContainerEnumName-to-name map. That map is not callable on 26.60, so
+/// there the screen's container manager is walked and the factory is asked what each of its names
+/// stands for.
+std::string collectionName([[maybe_unused]] ContainerScreenController const& self, ContainerEnumName e) {
+#if ABP_LL_VERSION >= 2660
+    if (auto const* mgr = self.mContainerManagerController.get()) {
+        for (auto const& entry : mgr->mContainers.get()) {
+            if (ContainerFactory::getContainerEnumName(entry.first).mName == e) return entry.first;
+        }
+    }
+#else
     auto const& names = ContainerCollectionNameMap();
     if (auto it = names.find(e); it != names.end()) return it->second;
+#endif
     switch (e) {
     case ContainerEnumName::CraftingInputContainer:
         return "crafting_input_items";
@@ -139,7 +154,7 @@ ItemStackBase const* craftingPreview(CraftingScreenController const& self, std::
     bool const  workbench = static_cast<bool>(self.mWorkbench);
     int const   size      = workbench ? 9 : 4;
     int const   first     = static_cast<int>(workbench ? PlayerUISlot::Crafting3x3Input1 : PlayerUISlot::Crafting2x2Input1);
-    auto const  input     = collectionName(ContainerEnumName::CraftingInputContainer);
+    auto const  input     = collectionName(self, ContainerEnumName::CraftingInputContainer);
     std::vector<ConsumedInput> inputs;
     std::string                key = workbench ? "3x3" : "2x2";
     for (int i = 0; i < size; ++i) {
@@ -155,7 +170,7 @@ ItemStackBase const* craftingPreview(CraftingScreenController const& self, std::
 ItemStackBase const* smithingPreview(ContainerScreenController const& self, std::string const& collection, ItemStackBase const& base) {
     if (base.isNull() || !game::backpackTierOf(base.getTypeName())) return nullptr;
     if (!isCollection(collection, ContainerEnumName::SmithingTableResultPreviewContainer)) return nullptr;
-    auto const& it = self._getItemStack(collectionName(ContainerEnumName::SmithingTableInputContainer), 0);
+    auto const& it = self._getItemStack(collectionName(self, ContainerEnumName::SmithingTableInputContainer), 0);
     if (it.isNull() || !game::isBackpack(it)) return nullptr;
     std::vector<ConsumedInput> inputs{ConsumedInput{static_cast<int>(PlayerUISlot::SmithingTableInput), std::make_shared<ItemStack>(it), false}};
     return computePreview(gSmithingPreview, base, inputs, "smithing|" + fingerprint(it));

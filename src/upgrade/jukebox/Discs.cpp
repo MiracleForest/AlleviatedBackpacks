@@ -71,7 +71,10 @@ VanillaDisc const* vanillaByItem(std::string_view id) {
 
 std::string soundName(SoundEventIdentifier const& id) {
     auto const& v = id.mSound.get();
+#if ABP_LL_VERSION < 2660 || defined(LL_PLAT_C)
     if (auto const* e = std::get_if<SharedTypes::Legacy::LevelSoundEvent>(&v)) return LevelSoundEventMap::getName(*e);
+#endif
+    // A 26.60 server has no name for a built-in sound event: the vanilla disc table names it.
     if (auto const* s = std::get_if<std::string>(&v)) return *s;
     return {};
 }
@@ -93,7 +96,12 @@ std::optional<DiscInfo> discInfo(ItemStack const& stack) {
     std::string id   = game::ItemConv::idOf(stack);
     DiscInfo    info{};
     bool        have = false;
-    if (auto* comp = item->getComponent(RecordItemComponent::getIdentifier())) {
+#if ABP_LL_VERSION >= 2660
+    static HashedString const recordId{"minecraft:record"}; // RecordItemComponent::getIdentifier() is gone
+#else
+    auto const& recordId = RecordItemComponent::getIdentifier();
+#endif
+    if (auto* comp = item->getComponent(recordId)) {
         auto const* rec  = static_cast<RecordItemComponent const*>(comp);
         info.soundEvent  = soundName(rec->mSoundEvent.get());
         float seconds    = rec->mDuration;

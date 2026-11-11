@@ -1,18 +1,25 @@
-# Builds AlleviatedBackpacks for the server (BDS), the client, or both.
+# Builds AlleviatedBackpacks for the server (BDS), the client, or both, against one LeviLamina line.
 #
-#   pwsh tools/build.ps1                    # both platforms, release
+#   pwsh tools/build.ps1                    # both platforms, newest line (26_60), release
 #   pwsh tools/build.ps1 -Target server     # one platform
+#   pwsh tools/build.ps1 -Line 26_51        # another supported LeviLamina line
 #   pwsh tools/build.ps1 -Tests             # also build and run the unit tests (abp-tests)
 #
-# Each platform has its own build dir (build/<target>); outputs land in
+# Every supported line is a lip variant of the same name, with its LeviLamina version below and
+# its package lock in locks/<line>.lock, which is copied over xmake-requires.lock (generated, not
+# tracked). Each line and platform has its own build dir (build/<line>/<target>); outputs land in
 #   bin/<target>/AlleviatedBackpacks/  (dll, pdb, manifest.json, lang/, behavior_packs/, resource_packs/)
-# Copy that folder to `plugins/` (BDS) or `mods/` (LeviLauncher client).
+# Copy that folder to `mods/` (BDS with LeviLamina 26.60, or the LeviLauncher client) or to
+# `plugins/` (BDS with LeviLamina 26.51).
 param(
     [ValidateSet('server', 'client', 'all')][string]$Target = 'all',
+    [ValidateSet('26_60', '26_51')][string]$Line = '26_60',
     [ValidateSet('release', 'debug')][string]$Mode = 'release',
     [switch]$Tests
 )
 $ErrorActionPreference = 'Stop'
+# The LeviLamina version each supported line is built against.
+$leviLamina = @{ '26_60' = '26.60.6'; '26_51' = '26.51.7' }[$Line]
 $root = (Resolve-Path "$PSScriptRoot/..").Path
 Push-Location $root
 try {
@@ -39,10 +46,12 @@ try {
         if ($pf -and (Test-Path (Join-Path $pf 'Microsoft Visual Studio\18'))) { $vsArgs = @('--vs=2026'); break }
     }
 
+    Copy-Item (Join-Path $root "locks/$Line.lock") (Join-Path $root 'xmake-requires.lock') -Force
+
     $targets = if ($Target -eq 'all') { @('server', 'client') } else { @($Target) }
     foreach ($t in $targets) {
-        Write-Host "==> configuring $t ($Mode)"
-        xmake f -a x64 -m $Mode -p windows --target_type=$t -o "build/$t" @vsArgs -y
+        Write-Host "==> configuring $t ($Mode, LeviLamina $leviLamina)"
+        xmake f -a x64 -m $Mode -p windows --target_type=$t --levilamina=$leviLamina -o "build/$Line/$t" @vsArgs -y
         if ($LASTEXITCODE) { throw "xmake config failed for $t" }
         Write-Host "==> building $t"
         xmake build -y AlleviatedBackpacks

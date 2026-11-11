@@ -65,7 +65,9 @@ namespace {
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Winvalid-offsetof"
+#if ABP_LL_VERSION < 2660 // checked against the 1.26.51 binary; on later lines the header is the layout
 static_assert(offsetof(Actor, mLevel) == 0x1D8, "the humanoid renderer reads Actor::mLevel at +0x1D8");
+#endif
 #pragma clang diagnostic pop
 
 /// Layout of `ActorRenderData` (no constructor is exported; its references are plain pointers in

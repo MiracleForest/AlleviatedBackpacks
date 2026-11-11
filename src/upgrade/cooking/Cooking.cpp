@@ -18,6 +18,10 @@
 #include "mc/world/item/crafting/Recipes.h"
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/actor/FurnaceBlockActor.h"
+#if ABP_LL_VERSION >= 2660
+#include "mc/world/item/Item.h"
+#include "mc/world/item/components/FuelItemComponent.h"
+#endif
 
 #include "api/BackpackCapabilities.h"
 #include "api/abp/Fluid.h"
@@ -149,6 +153,28 @@ std::optional<core::ItemStackData> recipeResult(Kind kind, core::ItemStackData c
     return out;
 }
 
+namespace {
+/// Burn time of a stack in a regular furnace (cook time 200 ticks), in ticks.
+float burnDuration(ItemStack const& stack) {
+    constexpr float kFurnaceCookTicks = 200.f;
+#if ABP_LL_VERSION >= 2660
+    // 26.51's FurnaceBlockActor::getBurnDuration(ItemStackBase const&, float) is gone from 26.60.
+    // It asked the hardcoded fuel table and then the item's "minecraft:fuel" component (data-driven
+    // fuels such as coal and charcoal), so ask both here. The component holds seconds.
+    auto const* item = stack.mItem.get();
+    if (!item) return 0.f;
+    float ticks = FurnaceBlockActor::getItemBurnDuration(*item, kFurnaceCookTicks);
+    if (ticks > 0.f) return ticks;
+    static HashedString const fuelId{"minecraft:fuel"};
+    auto const*               component = item->getComponent(fuelId);
+    if (!component) return 0.f;
+    return static_cast<FuelItemComponent const*>(component)->mFuelDuration * 20.f;
+#else
+    return FurnaceBlockActor::getBurnDuration(stack, kFurnaceCookTicks);
+#endif
+}
+} // namespace
+
 int furnaceBurnTicks(core::ItemStackData const& fuel) {
     if (fuel.empty()) return 0;
     auto  level = ll::service::getLevel();
@@ -157,7 +183,7 @@ int furnaceBurnTicks(core::ItemStackData const& fuel) {
     if (auto it = cache.fuel.find(key); it != cache.fuel.end()) return it->second;
     int  ticks = 0;
     auto stack = game::ItemConv::toStack(fuel, 1);
-    if (!stack.isNull()) ticks = static_cast<int>(std::lround(FurnaceBlockActor::getBurnDuration(stack, 200.f)));
+    if (!stack.isNull()) ticks = static_cast<int>(std::lround(burnDuration(stack)));
     ticks = std::max(0, ticks);
     cache.fuel.emplace(std::move(key), ticks);
     return ticks;

@@ -35,7 +35,7 @@ bool fromServer(NetEventCallback& callback) {
 
 class BundleRuleHandler : public ll::network::PacketHandlerBase<BundleRuleHandler, abp::bundle::BundleRulePacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, abp::bundle::BundleRulePacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM abp::bundle::BundleRulePacket const& p) const {
         if (!fromServer(cb) || !p.valid()) return;
         auto it = p.body.find("allowed");
         if (it == p.body.end() || !it->is_boolean()) return;

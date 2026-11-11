@@ -72,7 +72,16 @@ mce::Color toMce(Color c) { return mce::Color{c.r, c.g, c.b, c.a}; }
 
 RectangleArea toArea(Rect const& r) { return RectangleArea{r.x, r.right(), r.y, r.bottom()}; }
 
-Font& uiFont(MinecraftUIRenderContext& ctx) { return ctx.mClient.getFontHandle().getFont(); }
+Font& uiFont(MinecraftUIRenderContext& ctx) {
+    auto handle = ctx.mClient.getFontHandle();
+#if ABP_LL_VERSION >= 2660
+    // FontHandle::getFont() is gone from 26.60. The handle carries the font it was built with,
+    // and the font repository keeps that font alive for as long as the client is up.
+    return *handle.mDefaultFont;
+#else
+    return handle.getFont();
+#endif
+}
 
 HashedString const& fillMaterial() {
     static HashedString const m{"ui_fillColor"};

@@ -25,6 +25,9 @@
 #include "mc/world/inventory/network/ItemStackNetResult.h"
 #include "mc/world/inventory/network/crafting/CraftHandlerBase.h"
 #include "mc/world/inventory/network/crafting/CraftHandlerCrafting.h"
+#if ABP_LL_VERSION >= 2660
+#include "mc/world/inventory/network/crafting/CraftHandlerSmithingTable.h"
+#endif
 #include "mc/world/inventory/network/crafting/ItemStackRequestActionCraftHandler.h"
 #include "mc/world/item/ItemInstance.h"
 #include "mc/world/item/ItemStack.h"
@@ -289,6 +292,33 @@ void onPostRequest(CraftHandlerBase& handler, bool success) {
     log().info("backpack craft: {} carried into the crafted backpack{}", pending.uuid.empty() ? "(unopened)" : pending.uuid, dyed);
 }} // namespace
 
+#if ABP_LL_VERSION >= 2660
+// CraftHandlerBase::handleCraftAction is gone from 26.60: a craft starts in the handler's own
+// _handleCraftAction. Backpacks are only crafted at the crafting table and the smithing table.
+LL_TYPE_INSTANCE_HOOK(
+    TierCraftStartHook,
+    ll::memory::HookPriority::Normal,
+    CraftHandlerCrafting,
+    &CraftHandlerCrafting::$_handleCraftAction,
+    ItemStackNetResult,
+    ItemStackRequestActionCraftBase const& requestAction
+) {
+    dropPending(this); // a new craft starts: forget a previous unfinished one
+    return origin(requestAction);
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    TierSmithingStartHook,
+    ll::memory::HookPriority::Normal,
+    CraftHandlerSmithingTable,
+    &CraftHandlerSmithingTable::$_handleCraftAction,
+    ItemStackNetResult,
+    ItemStackRequestActionCraftBase const& requestAction
+) {
+    dropPending(this);
+    return origin(requestAction);
+}
+#else
 LL_TYPE_INSTANCE_HOOK(
     TierCraftStartHook,
     ll::memory::HookPriority::Normal,
@@ -301,6 +331,7 @@ LL_TYPE_INSTANCE_HOOK(
     dropPending(this); // a new craft starts: forget a previous unfinished one
     return origin(requestAction, currentResult);
 }
+#endif
 
 LL_TYPE_INSTANCE_HOOK(
     TierCraftConsumeHook,

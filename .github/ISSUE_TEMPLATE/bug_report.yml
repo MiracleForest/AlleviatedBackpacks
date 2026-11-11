@@ -30,14 +30,14 @@ body:
     id: levilamina
     attributes:
       label: LeviLamina version
-      placeholder: 26.51.7
+      placeholder: 26.60.6
     validations:
       required: true
   - type: input
     id: minecraft
     attributes:
       label: Minecraft version
-      placeholder: 1.26.51.01
+      placeholder: 1.26.60.01
     validations:
       required: true
   - type: textarea

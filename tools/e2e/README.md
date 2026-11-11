@@ -4,7 +4,7 @@ There are two harnesses, one per LeviLamina platform. Both run the real game bin
 
 | | Server (`tools/e2e/server`) | Client (`tools/e2e/client`) |
 |---|---|---|
-| Runs | Bedrock Dedicated Server + LeviLamina 26.51.7 (`bedrock_server_mod.exe`) | Minecraft 1.26.51 through LeviLauncher (instance `1.26.51.01`) |
+| Runs | Bedrock Dedicated Server + LeviLamina 26.51.7 (`bedrock_server_mod.exe`; `install.ps1 -Version` picks another) | Minecraft 1.26.51 through LeviLauncher (instance `1.26.51.01`, or `$env:ABP_E2E_CLIENT_VERSION`) |
 | Mod taken from | `bin/server/AlleviatedBackpacks` | `bin/client/AlleviatedBackpacks` |
 | Driven by | console stdin/stdout | **headless input** through the LeviHeadlessInput mod's pipe (game in the background, your mouse/keyboard untouched; `-Foreground` = real `SendInput`) and window screenshots |
 | Parallel runs | yes: 3 slots, so 3 runs at a time (more runs wait) | opt-in game-instance slots (`-Slot` / `$env:LEVI_E2E_SLOTS`, see below); default one game (slot 1, lock shared with BEI and BeetrootSkin) |
@@ -113,7 +113,7 @@ and an Everlasting backpack in an explosion (`/backpack parity ...` sets the sce
 2. `install.ps1` (does nothing if already installed).
 3. Takes a free slot.
 4. Syncs the slot from `bds-base` and wipes its world, logs and configs.
-5. Copies the mod to `plugins\AlleviatedBackpacks`. LeviLamina 26.x servers load mods from `plugins\`, not `mods\`.
+5. Copies the mod to `plugins\AlleviatedBackpacks`, or to `mods\AlleviatedBackpacks` when LeviLamina is in `mods\`: LeviLamina 26.51 servers load mods from `plugins\`, 26.60 servers from `mods\`. Run the scenarios once per LeviLamina line, against that line's build (`tools/build.ps1 -Line`).
 6. Writes `server.properties` for a fresh world `ABP-Test`: FLAT, seed 20260521, survival, peaceful, cheats on, `texturepack-required=true`, content log on the console.
 7. Runs `scenarios/<name>.prelaunch.ps1` if it exists.
 8. Boots the server and waits for `AlleviatedBackpacks enabled` and `Server started`.

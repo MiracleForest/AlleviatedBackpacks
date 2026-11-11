@@ -221,7 +221,7 @@ bool openHovered() {
     log().info("key: open backpack in {} #{} (screen {})", slot->collection, slot->index, screen);
     if (!inventoryScreen(screen) && client) {
         // Not the inventory: the container screen closes (the backpack replaces it).
-        client->getSceneFactory().getCurrentSceneStack()->schedulePopScreen(1);
+        client->getCurrentSceneStack()->schedulePopScreen(1);
         sendWhenClosed(std::move(*target), 60);
         return true;
     }

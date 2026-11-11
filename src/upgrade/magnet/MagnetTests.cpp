@@ -273,7 +273,9 @@ ABP_REGISTER_SELFTEST("magnet.pulls_thrown_items_but_respects_tags", [](Context&
     int  slot = ctx.installUpgrade(bp, std::string(kBasicId));
     auto own  = spawnItem(player, "minecraft:iron_ingot", 1, -2.3f);
     if (auto* o = findItem(player, own)) {
+#if ABP_LL_VERSION < 2660 // ItemActor::setSourceEntity is not exported on 26.60
         o->setSourceEntity(&player);
+#endif
         o->age()         = 0;
         o->pickupDelay() = 40; // a freshly thrown item
     }

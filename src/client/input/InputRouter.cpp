@@ -386,6 +386,32 @@ Snapshot& snapshot() {
     return instance;
 }
 
+/// Shared body of CompanionClientUpdateHook, whose signature differs between LeviLamina lines.
+bool afterClientUpdate(ClientInstance& client, bool isInitFinished, bool result) {
+    if (!isInitFinished) return result;
+    try {
+        onClientUpdate(client);
+    } catch (std::exception const& e) {
+        log().error("companion input update failed: {}", e.what());
+    }
+    return result;
+}
+
+// ClientInstance::update took only isInitFinished until LeviLamina 26.51; 26.60 added
+// allowGameUpdate, which changes the signature the hook has to match.
+#if ABP_LL_VERSION >= 2660
+LL_TYPE_INSTANCE_HOOK(
+    CompanionClientUpdateHook,
+    ll::memory::HookPriority::Normal,
+    ClientInstance,
+    &ClientInstance::$update,
+    bool,
+    bool isInitFinished,
+    bool allowGameUpdate
+) {
+    return afterClientUpdate(*this, isInitFinished, origin(isInitFinished, allowGameUpdate));
+}
+#else
 LL_TYPE_INSTANCE_HOOK(
     CompanionClientUpdateHook,
     ll::memory::HookPriority::Normal,
@@ -394,15 +420,9 @@ LL_TYPE_INSTANCE_HOOK(
     bool,
     bool isInitFinished
 ) {
-    auto result = origin(isInitFinished);
-    if (!isInitFinished) return result;
-    try {
-        onClientUpdate(*this);
-    } catch (std::exception const& e) {
-        log().error("companion input update failed: {}", e.what());
-    }
-    return result;
+    return afterClientUpdate(*this, isInitFinished, origin(isInitFinished));
 }
+#endif
 
 LL_TYPE_INSTANCE_HOOK(CompanionFocusLostHook, ll::memory::HookPriority::Normal, MinecraftGame, &MinecraftGame::$onAppFocusLost, void) {
     origin();

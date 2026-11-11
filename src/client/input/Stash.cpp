@@ -531,7 +531,7 @@ bool fromServer(NetEventCallback& callback) {
 
 class StashInfoHandler : public ll::network::PacketHandlerBase<StashInfoHandler, abp::net::StashInfoPacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, abp::net::StashInfoPacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM abp::net::StashInfoPacket const& p) const {
         if (!fromServer(cb) || !p.valid()) return;
         onAnswer(p.body);
     }
