@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta.1] - 2026-11-11
+
+First beta of 0.2.0. Please report anything that behaves differently from 0.1.2.
+
 ### Added
 
 - Support for **Minecraft 1.26.60** with LeviLamina 26.60.x, which is now the version AlleviatedBackpacks is installed as by default. Minecraft 1.26.51 with LeviLamina 26.51.x is still supported and gets its own builds of every release, so nothing is lost by updating.
@@ -81,7 +85,8 @@ build, in single player and on a server.
 - **Commands**: `/backpack` (alias `/abp`) and `/sbp` (alias `/sophisticatedbackpacks`).
 - English and Simplified Chinese; the GUI follows each player's language.
 
-[Unreleased]: https://github.com/MiracleForest/AlleviatedBackpacks/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/MiracleForest/AlleviatedBackpacks/compare/v0.2.0-beta.1...HEAD
+[0.2.0-beta.1]: https://github.com/MiracleForest/AlleviatedBackpacks/compare/v0.1.2...v0.2.0-beta.1
 [0.1.2]: https://github.com/MiracleForest/AlleviatedBackpacks/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/MiracleForest/AlleviatedBackpacks/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/MiracleForest/AlleviatedBackpacks/releases/tag/v0.1.0
