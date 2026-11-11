@@ -43,6 +43,9 @@
 #include "mc/world/actor/SynchedActorDataEntityWrapper.h"
 #include "mc/entity/components/SynchedActorDataComponent.h"
 #include "mc/world/actor/player/Player.h"
+#if ABP_LL_VERSION >= 2660
+#include "mc/world/item/HandSlot.h"
+#endif
 #include "mc/world/gamemode/InteractionResult.h"
 #include "mc/world/item/ItemStack.h"
 #include "mc/world/level/BlockPos.h"
@@ -785,6 +788,14 @@ void serve(Level& level) {
 
 /// Every entity interaction ends here (GameMode::interact for real clients, simulated players'
 /// interactions directly), before the entity's own interaction (milking, trading, leashing, ...).
+// Player::interact gained the hand that interacts in LeviLamina 26.60.
+#if ABP_LL_VERSION >= 2660
+#define ABP_INTERACT_HAND_PARAM , HandSlot handSlot
+#define ABP_INTERACT_HAND_ARG   , handSlot
+#else
+#define ABP_INTERACT_HAND_PARAM
+#define ABP_INTERACT_HAND_ARG
+#endif
 LL_TYPE_INSTANCE_HOOK(
     McPlayerInteractHook,
     ll::memory::HookPriority::Normal,
@@ -792,7 +803,7 @@ LL_TYPE_INSTANCE_HOOK(
     &Player::interact,
     InteractionResult,
     Actor&      actor,
-    Vec3 const& location
+    Vec3 const& location ABP_INTERACT_HAND_PARAM
 ) {
     if (onInteract(*this, actor)) {
         InteractionResult consumed{};
@@ -800,7 +811,7 @@ LL_TYPE_INSTANCE_HOOK(
         consumed.mSwing   = true;
         return consumed;
     }
-    return origin(actor, location);
+    return origin(actor, location ABP_INTERACT_HAND_ARG);
 }
 
 #pragma clang diagnostic pop

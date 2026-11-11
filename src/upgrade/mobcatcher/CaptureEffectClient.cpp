@@ -14,7 +14,7 @@
 
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/client/ClientExitLevelEvent.h"
-#include "ll/api/network/packet/Packet.h"
+#include "net/PacketCompat.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/client/renderer/BaseActorRenderContext.h"
@@ -89,7 +89,7 @@ void renderEffects(BaseActorRenderContext& rc) {
 
 class CaptureEffectHandler : public ll::network::PacketHandlerBase<CaptureEffectHandler, MobCaptureEffectPacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, MobCaptureEffectPacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM MobCaptureEffectPacket const& p) const {
         if (!fromServer(cb) || !p.valid()) return;
         try {
             Effect e;

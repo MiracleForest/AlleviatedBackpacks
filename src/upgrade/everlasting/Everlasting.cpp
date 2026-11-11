@@ -84,7 +84,12 @@ namespace {
 
 ActorHurtResult notHurt() {
     ActorHurtResult r;
-    r.mHurtOrDamage         = std::variant<bool, float>(false);
+#if ABP_LL_VERSION >= 2660
+    r.mType         = ActorHurtResult::Type::NotHurt;
+    r.mDamageAmount = std::nullopt;
+#else
+    r.mHurtOrDamage = std::variant<bool, float>(false);
+#endif
     r.mShouldAllowKnockback = false;
     return r;
 }

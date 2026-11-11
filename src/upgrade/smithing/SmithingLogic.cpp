@@ -65,7 +65,11 @@ bool isIngredient(ItemStack const& stack, Ingredient which) {
         auto const& ingredients = recipe.mMyIngredients.get();
         if (found || ingredients.size() != 3) return;
         any   = true;
+#if ABP_LL_VERSION >= 2660
+        found = recipe.itemValidForRecipe(ingredients[index], stack, nullptr); // no crafting context
+#else
         found = recipe.itemValidForRecipe(ingredients[index], stack);
+#endif
     });
     if (any) return found;
     // No recipe data (should not happen): templates by name, gear as the base, the rest as addition.

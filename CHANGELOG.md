@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Support for **Minecraft 1.26.60** with LeviLamina 26.60.x, which is now the version AlleviatedBackpacks is installed as by default. Minecraft 1.26.51 with LeviLamina 26.51.x is still supported and gets its own builds of every release, so nothing is lost by updating.
+  - AlleviatedBackpacks is compiled against one LeviLamina line at a time, so each release now ships one download per line and side: `alleviatedbackpacks-{client,server}-win-x64-ll26.60.zip` and `alleviatedbackpacks-{client,server}-win-x64-ll26.51.zip`.
+
+### Changed
+
+- The package is now described by `lip.toml` of format 4 instead of `tooth.json`, so installing it needs [lip](https://github.com/LiteLDev/lip) **0.40.0** or later, or a LeviLauncher that reads it. Older releases stay installable with older lip.
+- Each supported LeviLamina line is a variant named after it, with a server and a client build: `26_60` for 26.60.x and `26_51` for 26.51.x. The default variant (servers) and `client` (players) — the variants earlier releases were installed as — are the newest line, so `lip update` and LeviLauncher keep working and simply move you to 26.60.
+  - To stay on Minecraft 1.26.51, install `github.com/MiracleForest/AlleviatedBackpacks#26_51`, or pick the `26_51` variant on the mod's page in LeviLauncher. lip keeps one variant of a mod at a time, so uninstall the one you have first (`lip uninstall github.com/MiracleForest/AlleviatedBackpacks[#client]`); your config stays.
+  - LeviLamina 26.60 servers load mods from `mods/` instead of `plugins/`, so the server build of the 26.60 line goes to `mods/AlleviatedBackpacks/`, with its config in `mods/AlleviatedBackpacks/config/`. When you move a server from 26.51 to 26.60, copy your config over from `plugins/AlleviatedBackpacks/config/`. The `26_51` variant still installs into `plugins/AlleviatedBackpacks/`.
+  - Your config in `mods/AlleviatedBackpacks/config/` (game) or `plugins/AlleviatedBackpacks/config/` (26.51 server) is kept on update.
+- The downloads are now lip mod archives: the files sit at the root of the ZIP instead of inside an `AlleviatedBackpacks/` folder. Extract one into `mods/AlleviatedBackpacks/` (or `plugins/AlleviatedBackpacks/` on a 26.51 server), not into `mods/`.
+
+### Fixed
+
+- On Minecraft 1.26.60, the burn time of fuels for the Smelting, Smoking and Blasting upgrades comes from the game's fuel table and the item's `minecraft:fuel` component, because the call used for it on 1.26.51 is gone from 1.26.60.
+- The crafting and smithing result previews of backpack recipes find the screen's input slots by asking the game what each of the screen's collections is, instead of through a lookup table that 1.26.60 no longer offers. They work the same on both versions.
+
 ## [0.1.2] - 2026-11-01
 
 ### Changed

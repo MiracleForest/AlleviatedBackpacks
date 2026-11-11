@@ -45,24 +45,44 @@ up, feed, craft and sort for you.
 Players need the **client** mod to open backpacks, in single player and on a server. A server
 needs the **server** mod. Use the same version on both.
 
-With [lip](https://github.com/LiteLDev/lip):
+A release is built against each LeviLamina line it supports; pick the one that matches your game
+or server:
+
+| Minecraft | LeviLamina | Variant | Downloads |
+| --------- | ---------- | ------- | --------- |
+| 1.26.60 | 26.60.x | `26_60`, and the default | `alleviatedbackpacks-{client,server}-win-x64-ll26.60.zip` |
+| 1.26.51 | 26.51.x | `26_51` | `alleviatedbackpacks-{client,server}-win-x64-ll26.51.zip` |
+
+In LeviLauncher, install AlleviatedBackpacks from the **LeviMC Mods** page; it offers the variants
+above, and the default is the newest line.
+
+With [lip](https://github.com/LiteLDev/lip) 0.40.0 or later:
 
 ```sh
 lip install github.com/MiracleForest/AlleviatedBackpacks#client   # players: in the game folder
 lip install github.com/MiracleForest/AlleviatedBackpacks          # servers: in the server folder
+lip install github.com/MiracleForest/AlleviatedBackpacks#26_51    # Minecraft 1.26.51 (game or server)
 ```
 
-Or download from the [latest release](https://github.com/MiracleForest/AlleviatedBackpacks/releases/latest):
+lip keeps one variant of a mod at a time: to switch variants, `lip uninstall` the installed one
+first (the config is kept).
 
-- **Players:** `alleviatedbackpacks-client-windows-x64.zip`. In LeviLauncher, extract it so that the
-  `AlleviatedBackpacks` folder lands in the game version's `mods` folder. Every local world gets the
-  backpacks; nothing to switch on.
-- **Servers:** `alleviatedbackpacks-server-windows-x64.zip`, extracted into the server's `plugins`
-  folder. The server hands its resource pack to joining players.
+Or download the ZIPs for your line from the
+[latest release](https://github.com/MiracleForest/AlleviatedBackpacks/releases/latest). The files
+sit at the root of each ZIP:
 
-Requires Minecraft Bedrock Edition **1.26.51** with LeviLamina **26.51.x** (Windows x64). Players
-without the client mod can still join a server and carry backpacks, but cannot open them:
-they get a download link instead of the backpack screen.
+- **Players:** `alleviatedbackpacks-client-win-x64-ll<line>.zip`. Extract it into an
+  `AlleviatedBackpacks` folder inside the game version's `mods` folder, so that
+  `mods/AlleviatedBackpacks/manifest.json` exists. Every local world gets the backpacks; nothing
+  to switch on.
+- **Servers:** `alleviatedbackpacks-server-win-x64-ll<line>.zip`, extracted into
+  `mods/AlleviatedBackpacks/` on a LeviLamina 26.60 server, or into `plugins/AlleviatedBackpacks/`
+  on a LeviLamina 26.51 server (26.51 servers load mods from `plugins`). The server hands its
+  resource pack to joining players.
+
+Requires Minecraft Bedrock Edition **1.26.60** with LeviLamina **26.60.x**, or **1.26.51** with
+LeviLamina **26.51.x** (Windows x64). Players without the client mod can still join a server and
+carry backpacks, but cannot open them: they get a download link instead of the backpack screen.
 
 ## How to use
 
@@ -95,8 +115,9 @@ upgrades.
 
 ## Settings
 
-The config files are in the mod's `config` folder (`mods/AlleviatedBackpacks/config/` in the game,
-`plugins/AlleviatedBackpacks/config/` on a server), created on first start. `/backpack reload`
+The config files are in the mod's `config` folder (`mods/AlleviatedBackpacks/config/` in the game
+and on a 26.60 server, `plugins/AlleviatedBackpacks/config/` on a 26.51 server), created on first
+start. `/backpack reload`
 applies changes.
 
 - `general.json`: `allowNesting` (backpacks in backpacks without the Inception upgrade),

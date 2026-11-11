@@ -1,0 +1,109 @@
+format = 4
+id = "github.com/MiracleForest/AlleviatedBackpacks"
+version = "0.1.2"
+
+[info]
+name = "AlleviatedBackpacks"
+description = "Backpacks with upgrades for Minecraft Bedrock Edition: the gameplay of Sophisticated Backpacks"
+tags = ["utility", "game-mechanics", "backpack", "storage", "inventory"]
+logo = "https://raw.githubusercontent.com/MiracleForest/AlleviatedBackpacks/main/docs/logo.png"
+
+# AlleviatedBackpacks is compiled against one LeviLamina line at a time, so every supported line is
+# a variant named after it: 26_51 for LeviLamina 26.51.x (Minecraft 1.26.51), 26_60 for 26.60.x
+# (Minecraft 1.26.60). Variant names may only hold [a-z0-9_], hence 26_60 and not 26.60. Each line
+# has a server entry (BDS) and a client entry (the game, e.g. through LeviLauncher).
+#
+# The default variant, which servers and earlier releases' server installs use, and the variant
+# "client", which LeviLauncher reaches for first and earlier releases' client installs use, are the
+# newest supported line.
+
+# --- 26.60 (Minecraft 1.26.60) ------------------------------------------------------------------
+
+[[variants.""]]
+side = "server"
+platform = "win-x64"
+preserve = ["mods/AlleviatedBackpacks/config/"]
+
+[variants."".deps]
+"github.com/LiteLDev/LeviLamina" = "26.60.*"
+
+[[variants."".assets]]
+type = "mcmod"
+urls = ["https://{{id}}/releases/download/v{{version}}/alleviatedbackpacks-server-win-x64-ll26.60.zip"]
+
+[[variants.""]]
+side = "client"
+platform = "win-x64"
+preserve = ["mods/AlleviatedBackpacks/config/"]
+
+[variants."".deps]
+"github.com/LiteLDev/LeviLamina#client" = "26.60.*"
+
+[[variants."".assets]]
+type = "mcmod"
+urls = ["https://{{id}}/releases/download/v{{version}}/alleviatedbackpacks-client-win-x64-ll26.60.zip"]
+
+[[variants.client]]
+side = "client"
+platform = "win-x64"
+preserve = ["mods/AlleviatedBackpacks/config/"]
+
+[variants.client.deps]
+"github.com/LiteLDev/LeviLamina#client" = "26.60.*"
+
+[[variants.client.assets]]
+type = "mcmod"
+urls = ["https://{{id}}/releases/download/v{{version}}/alleviatedbackpacks-client-win-x64-ll26.60.zip"]
+
+[[variants."26_60"]]
+side = "server"
+platform = "win-x64"
+preserve = ["mods/AlleviatedBackpacks/config/"]
+
+[variants."26_60".deps]
+"github.com/LiteLDev/LeviLamina" = "26.60.*"
+
+[[variants."26_60".assets]]
+type = "mcmod"
+urls = ["https://{{id}}/releases/download/v{{version}}/alleviatedbackpacks-server-win-x64-ll26.60.zip"]
+
+[[variants."26_60"]]
+side = "client"
+platform = "win-x64"
+preserve = ["mods/AlleviatedBackpacks/config/"]
+
+[variants."26_60".deps]
+"github.com/LiteLDev/LeviLamina#client" = "26.60.*"
+
+[[variants."26_60".assets]]
+type = "mcmod"
+urls = ["https://{{id}}/releases/download/v{{version}}/alleviatedbackpacks-client-win-x64-ll26.60.zip"]
+
+# --- 26.51 (Minecraft 1.26.51) ------------------------------------------------------------------
+
+# LeviLamina 26.51 servers load mods from plugins/ (26.60 moved them to mods/, where lip's mcmod
+# asset writes), so the server entry of this line places the same mod archive there itself.
+[[variants."26_51"]]
+side = "server"
+platform = "win-x64"
+preserve = ["plugins/AlleviatedBackpacks/config/"]
+
+[variants."26_51".deps]
+"github.com/LiteLDev/LeviLamina" = "26.51.*"
+
+[[variants."26_51".assets]]
+type = "zip"
+urls = ["https://{{id}}/releases/download/v{{version}}/alleviatedbackpacks-server-win-x64-ll26.51.zip"]
+place = [{ src = "", dest = "plugins/AlleviatedBackpacks/" }]
+
+[[variants."26_51"]]
+side = "client"
+platform = "win-x64"
+preserve = ["mods/AlleviatedBackpacks/config/"]
+
+[variants."26_51".deps]
+"github.com/LiteLDev/LeviLamina#client" = "26.51.*"
+
+[[variants."26_51".assets]]
+type = "mcmod"
+urls = ["https://{{id}}/releases/download/v{{version}}/alleviatedbackpacks-client-win-x64-ll26.51.zip"]

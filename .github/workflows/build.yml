@@ -11,12 +11,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # One build per supported LeviLamina line (the lip variant of the same name; tools/build.ps1
+        # knows its LeviLamina version and lock file) and per side.
+        variant: ["26_60", "26_51"]
         target_type: [server, client]
+    name: build (${{ matrix.target_type }}, LeviLamina ${{ matrix.variant }})
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0 # the mod version comes from the latest tag
 
       - uses: xmake-io/github-action-setup-xmake@v1
 
@@ -24,9 +26,9 @@ jobs:
         with:
           path: |
             ~/AppData/Local/.xmake
-          key: xmake-${{ matrix.target_type }}-${{ hashFiles('xmake.lua', 'xmake-requires.lock') }}
+          key: xmake-${{ matrix.variant }}-${{ matrix.target_type }}-${{ hashFiles('xmake.lua', 'locks/*.lock') }}
           restore-keys: |
-            xmake-${{ matrix.target_type }}-
+            xmake-${{ matrix.variant }}-${{ matrix.target_type }}-
 
       - name: Setup LLVM
         uses: ZhongRuoyu/setup-llvm@v0
@@ -39,7 +41,7 @@ jobs:
 
       - name: Build
         shell: pwsh
-        run: pwsh tools/build.ps1 -Target ${{ matrix.target_type }}
+        run: pwsh tools/build.ps1 -Target ${{ matrix.target_type }} -Line ${{ matrix.variant }}
 
       - name: Dump xmake package install logs
         if: failure()
@@ -56,6 +58,6 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ github.event.repository.name }}-${{ github.sha }}-${{ matrix.target_type }}-windows-x64
+          name: ${{ github.event.repository.name }}-${{ github.sha }}-${{ matrix.target_type }}-win-x64-ll${{ matrix.variant }}
           path: |
             bin/${{ matrix.target_type }}/AlleviatedBackpacks/

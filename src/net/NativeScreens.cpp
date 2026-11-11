@@ -998,7 +998,7 @@ bool handleScreenAction(Player& player, nlohmann::json const& body) {
 
 class ScreenActionHandler : public ll::network::PacketHandlerBase<ScreenActionHandler, ScreenActionPacket> {
 public:
-    void handlePacket(NetworkIdentifier const& source, NetEventCallback& callback, ScreenActionPacket const& packet) const {
+    void handlePacket(NetworkIdentifier const& source, NetEventCallback& callback, ABP_PACKET_SIDE_PARAM ScreenActionPacket const& packet) const {
         auto* player = senderOf(source, callback, packet.mSenderSubId);
         if (!player || !packet.valid() || !hasCompanion(*player)) return;
         try {

@@ -17,6 +17,9 @@
 #include "mc/world/level/Level.h"
 #include "mc/world/level/block/Block.h"
 #include "mc/world/level/block/BlockChangeContext.h"
+#if ABP_LL_VERSION >= 2660
+#include "mc/world/level/BlockDestroySound.h"
+#endif
 #include "mc/world/phys/AABB.h"
 
 #include "feature/placed/PlacedBackpacks.h"
@@ -80,6 +83,24 @@ LL_TYPE_INSTANCE_HOOK(AbpDragonCheckWallsHook, ll::memory::HookPriority::Normal,
     return origin(bb);
 }
 
+// Level::destroyBlock gained the sound to play in LeviLamina 26.60.
+#if ABP_LL_VERSION >= 2660
+LL_TYPE_INSTANCE_HOOK(
+    AbpGriefDestroyBlockHook,
+    ll::memory::HookPriority::Normal,
+    Level,
+    &Level::$destroyBlock,
+    bool,
+    ::BlockSource&              region,
+    ::BlockPos const&           pos,
+    bool                        dropResources,
+    ::BlockChangeContext const& changeSourceContext,
+    ::BlockDestroySound         destroySound
+) {
+    if (protectedNow(region, pos)) return false;
+    return origin(region, pos, dropResources, changeSourceContext, destroySound);
+}
+#else
 LL_TYPE_INSTANCE_HOOK(
     AbpGriefDestroyBlockHook,
     ll::memory::HookPriority::Normal,
@@ -94,6 +115,7 @@ LL_TYPE_INSTANCE_HOOK(
     if (protectedNow(region, pos)) return false;
     return origin(region, pos, dropResources, changeSourceContext);
 }
+#endif
 
 LL_TYPE_INSTANCE_HOOK(
     AbpGriefRemoveBlockHook,

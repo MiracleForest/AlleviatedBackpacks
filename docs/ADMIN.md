@@ -23,8 +23,8 @@ Everything a server operator (or a single-player world with cheats) can use. Pla
 
 ## Configuration
 
-The files live in `plugins/AlleviatedBackpacks/config/` on a server and in
-`mods/AlleviatedBackpacks/config/` in the game. They are created on first start;
+The files live in `mods/AlleviatedBackpacks/config/` in the game and on a LeviLamina 26.60
+server, and in `plugins/AlleviatedBackpacks/config/` on a LeviLamina 26.51 server. They are created on first start;
 `/backpack reload` applies changes.
 
 `general.json`:

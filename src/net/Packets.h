@@ -30,7 +30,7 @@
 
 #include <string>
 
-#include "ll/api/network/packet/Packet.h"
+#include "net/PacketCompat.h"
 
 #include "mc/deps/core/utility/BinaryStream.h"
 #include "mc/deps/core/utility/ReadOnlyBinaryStream.h"

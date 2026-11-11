@@ -1,9 +1,17 @@
 # AGENTS.md
 
 AlleviatedBackpacks is a Bedrock port of the *behaviour* of the Java mod Sophisticated Backpacks,
-written as a LeviLamina native mod. It targets MC **1.26.51** / LeviLamina **26.51.7**, builds
-with xmake + clang-cl on Windows x64, and runs on **both** the dedicated server (BDS) and the
-client (local worlds through LeviLauncher). One code base, two builds (`--target_type=server|client`).
+written as a LeviLamina native mod. It builds with xmake + clang-cl on Windows x64, and runs on
+**both** the dedicated server (BDS) and the client (local worlds through LeviLauncher). One code
+base, two builds (`--target_type=server|client`).
+
+One source tree also supports several LeviLamina lines, one build each. A line is a lip variant of
+the same name, and `--levilamina` (`tools/build.ps1 -Line`) picks the one being built:
+
+| Line | Minecraft | Variant | Built against | Lock file | BDS mod folder |
+| --- | --- | --- | --- | --- | --- |
+| 26.60.x | 1.26.60 | `26_60`, and the default (and `client`) | `--levilamina=26.60.6` (the default) | `locks/26_60.lock` | `mods` |
+| 26.51.x | 1.26.51 | `26_51` | `--levilamina=26.51.7` | `locks/26_51.lock` | `plugins` |
 
 Policy: never copy code or assets from the Java Sophisticated Backpacks repository (behaviour
 reference only). Textures are original pixel art drawn by `tools/textures/*.ps1`.
@@ -138,6 +146,7 @@ In a fresh pwsh refresh PATH first (the build script does this and adds LLVM if 
 ```powershell
 pwsh tools/build.ps1 -Target all            # bin/server/AlleviatedBackpacks + bin/client/AlleviatedBackpacks
 pwsh tools/build.ps1 -Target server -Tests  # one platform + unit tests
+pwsh tools/build.ps1 -Line 26_51            # another LeviLamina line (default 26_60)
 xmake build -y abp-tests; xmake run abp-tests
 ```
 
@@ -148,7 +157,13 @@ xmake build -y abp-tests; xmake run abp-tests
   CI uses setup-llvm's LLVM 22. The runner's preinstalled `C:\Program Files\LLVM` fails on LL's headers.
 - CI: a failed package install prints `installdir.failed\logs\install.txt` in the "Dump xmake package
   install logs" step. The `download ... rapidjson ... failed` line is harmless (xmake falls back to git clone).
-- `xmake-requires.lock` is committed; it holds entries for both target types.
+- `xmake-requires.lock` is generated, not tracked: `tools/build.ps1` copies `locks/<line>.lock` over
+  it. Each lock holds entries for both target types.
+- The build defines `ABP_LL_VERSION` as the line it is building for: `2651`, `2660`. Guard an SDK
+  difference with it (`#if ABP_LL_VERSION >= 2660 ... #else ... #endif`), keep the guard as small as
+  possible, and never drop the older path. Prefer one unguarded path when the same API works on
+  both lines. A warning `'X' is deprecated: This API is not available` means `X` became `MCNAPI` on
+  that line: find another way instead of silencing it.
 - In game: `/backpack selftest ["glob"]` (alias `/abp`; op or server console). Quote globs that
   contain `*` or `.`, e.g. `backpack selftest "menu.*"`; the parser rejects them unquoted. Output lines are
   exactly `SELFTEST PASS <name>`, `SELFTEST FAIL <name>: <reason>`, `SELFTEST DONE pass=<N> fail=<M>`.
@@ -158,21 +173,25 @@ xmake build -y abp-tests; xmake run abp-tests
   `tools/e2e/{server,client}/scenarios/<unit>.ps1`. There is one game client per machine: respect the
   e2e lock files in `%APPDATA%\levilauncher.exe\` (the harness handles them).
 
-Releasing: the mod and pack versions come from the latest `v*` tag (`git describe`, untagged =
-0.0.0). Move *Unreleased* in `CHANGELOG.md` to `## [x.y.z] - <date>`, bump `tooth.json` `version`,
-merge, then push the tag `vx.y.z`: `.github/workflows/release.yml` builds both targets, checks the
-versions, and publishes `alleviatedbackpacks-{server,client}-windows-x64.zip` with that changelog
-section as notes. lip: `lip install github.com/MiracleForest/AlleviatedBackpacks[#client]`.
+Releasing: the version lives in `lip.toml` (`version`), `manifest.json` (`version`; the packs take
+its `major.minor.patch`) and `CHANGELOG.md`. Move *Unreleased* in `CHANGELOG.md` to
+`## [x.y.z] - <date>`, bump both files, merge, then push the tag `vx.y.z`:
+`.github/workflows/release.yml` builds every line for both targets, checks the versions, and
+publishes `alleviatedbackpacks-{server,client}-win-x64-ll<line>.zip` (lip `mcmod` archives:
+`manifest.json` at the root) with that changelog section as notes; a version with a `-` is a
+prerelease. lip (0.40.0+): `lip install github.com/MiracleForest/AlleviatedBackpacks[#client|#26_51]`.
 
-Deploying by hand: copy `bin/server/AlleviatedBackpacks` to `<BDS>/plugins/` (LeviLamina's BDS mod
-folder is `plugins`), or `bin/client/AlleviatedBackpacks` to
-`%APPDATA%\levilauncher.exe\versions\1.26.51.01\mods\`.
+Deploying by hand: copy `bin/server/AlleviatedBackpacks` to `<BDS>/mods/` (LeviLamina 26.60) or
+`<BDS>/plugins/` (LeviLamina 26.51 servers load mods from `plugins`), or
+`bin/client/AlleviatedBackpacks` to `%APPDATA%\levilauncher.exe\versions\<version>\mods\`.
 
 ## Bedrock / LeviLamina rules (learned the hard way)
 
-- Headers: `%LOCALAPPDATA%\.xmake\packages\l\levilamina\26.51.7\<hash>\include\{ll,mc}` (one hash per
-  target type); LL sources in `%LOCALAPPDATA%\lip\cache\git%2Bhttps%3A%2F%2Fgithub.com%2FLiteLDev%2FLeviLamina.git%23v26.51.7`.
-  Check them before guessing a name or signature.
+- Headers: `%LOCALAPPDATA%\.xmake\packages\l\levilamina\<version>\<hash>\include\{ll,mc}` (one hash per
+  target type, one tree per version you have built against); LL sources in
+  `%LOCALAPPDATA%\lip\cache\git%2Bhttps%3A%2F%2Fgithub.com%2FLiteLDev%2FLeviLamina.git%23v<version>`.
+  Check them before guessing a name or signature, and diff the trees of two lines before assuming
+  an API is the same on both.
 - Callable: `MCAPI`, `MCFOLD`, `MCTAPI`, unmarked `virtual`. **Never** `MCNAPI`. `ll::TypedStorage`
   members are fields (`.get()`, `*`, `->`). Packets without an MCAPI constructor are created with
   `MinecraftPackets::createPacket(MinecraftPacketIds::X)` + `static_cast`; send with `pkt.sendTo(player)`.

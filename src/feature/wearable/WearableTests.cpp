@@ -18,6 +18,10 @@
 #include "mc/world/actor/ActorDefinitionIdentifier.h"
 #include "mc/world/actor/ActorType.h"
 #include "mc/world/actor/Mob.h"
+#if ABP_LL_VERSION >= 2660
+#include "mc/util/NamedMolangScript.h" // completes ActorDefinitionDescriptor
+#include "mc/world/actor/ActorDefinitionDescriptor.h"
+#endif
 #include "mc/world/attribute/AttributeInstance.h"
 #include "mc/world/attribute/AttributeInstanceConstRef.h"
 #include "mc/world/attribute/SharedAttributes.h"
@@ -63,6 +67,16 @@
 
 namespace abp::wearable {
 namespace {
+
+/// Actor::executeEvent, which LeviLamina 26.60 does not export for the client; it forwards to
+/// ActorDefinitionDescriptor::executeEvent.
+bool executeEvent(Actor& actor, std::string const& name, VariantParameterList const& params) {
+#if ABP_LL_VERSION >= 2660
+    return ActorDefinitionDescriptor::executeEvent(actor, name, params);
+#else
+    return actor.executeEvent(name, params);
+#endif
+}
 
 using selftest::Context;
 using SharedTypes::Legacy::ArmorSlot;
@@ -595,7 +609,7 @@ ABP_REGISTER_SELFTEST("wearable.conversion_keeps_backpack", [](Context& ctx) -> 
     params.mSelf = zombie;
     for (auto ev : {"minecraft:convert_to_drowned", "minecraft:start_transforming", "minecraft:start_drowned_transformation", "minecraft:become_drowned"}) {
         if (zombie->getEntityContext().tryGetComponent<TransformationComponent>()) break;
-        bool ok = zombie->executeEvent(ev, params);
+        bool ok = executeEvent(*zombie, ev, params);
         co_await ctx.ticks(2);
         ctx.info(std::string("event ") + ev + " -> " + std::to_string(ok) + ", transformation "
                  + std::to_string(static_cast<bool>(zombie->getEntityContext().tryGetComponent<TransformationComponent>())));
@@ -648,7 +662,7 @@ ABP_REGISTER_SELFTEST("wearable.creeper_loses_buffs", [](Context& ctx) -> ll::co
     // The real explosion (no block damage, tiny power).
     VariantParameterList params{};
     params.mSelf = creeper;
-    (void)creeper->executeEvent("minecraft:start_exploding_forced", params);
+    (void)executeEvent(*creeper, "minecraft:start_exploding_forced", params);
     co_await ctx.ticks(1);
     if (auto ex = creeper->getEntityContext().tryGetComponent<ExplodeComponent>()) {
         ex->mBreaksBlocks    = false;

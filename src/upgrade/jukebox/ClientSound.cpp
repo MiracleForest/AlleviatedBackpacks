@@ -21,7 +21,7 @@
 #include "ll/api/event/EventBus.h"
 #include "ll/api/event/world/ClientLevelTickEvent.h"
 #include "ll/api/event/client/ClientExitLevelEvent.h"
-#include "ll/api/network/packet/Packet.h"
+#include "net/PacketCompat.h"
 #include "ll/api/service/Bedrock.h"
 
 #include "mc/client/game/ClientInstance.h"
@@ -185,7 +185,7 @@ void tick() {
 
 class PlayHandler : public ll::network::PacketHandlerBase<PlayHandler, JukeboxPlayPacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, JukeboxPlayPacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM JukeboxPlayPacket const& p) const {
         if (!fromServer(cb) || !p.valid()) return;
         auto uuid  = p.body.value("uuid", std::string{});
         auto sound = p.body.value("sound", std::string{});
@@ -205,7 +205,7 @@ public:
 
 class StopHandler : public ll::network::PacketHandlerBase<StopHandler, JukeboxStopPacket> {
 public:
-    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, JukeboxStopPacket const& p) const {
+    void handlePacket(NetworkIdentifier const&, NetEventCallback& cb, ABP_PACKET_SIDE_PARAM JukeboxStopPacket const& p) const {
         if (!fromServer(cb) || !p.valid()) return;
         auto uuid = p.body.value("uuid", std::string{});
         if (gSounds.contains(uuid)) log().info("jukebox: stopping the sound of backpack {}", uuid);

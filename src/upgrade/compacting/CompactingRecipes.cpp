@@ -98,6 +98,15 @@ std::vector<core::ItemStackData> remainingItems(Recipe const& recipe, ItemStack 
 
 bool sameKind(core::ItemStackData const& a, core::ItemStackData const& b) { return a.id == b.id && a.aux == b.aux; }
 
+/// Recipe::itemValidForRecipe, which takes a crafting context since LeviLamina 26.60 (none here).
+bool validForRecipe(Recipe const& recipe, ItemDescriptor const& ingredient, ItemStack const& stack) {
+#if ABP_LL_VERSION >= 2660
+    return recipe.itemValidForRecipe(ingredient, stack, nullptr);
+#else
+    return recipe.itemValidForRecipe(ingredient, stack);
+#endif
+}
+
 /// True if `recipe` crafts `stack` laid out as `shape` (shaped: same size, filled cells exactly
 /// where the shape has them, possibly mirrored; shapeless: `shape.count` ingredients).
 bool matchesShape(Recipe const& recipe, Shape const& shape, ItemStack const& stack) {
@@ -105,7 +114,7 @@ bool matchesShape(Recipe const& recipe, Shape const& shape, ItemStack const& sta
         int n = 0;
         for (auto const& ing : *recipe.mMyIngredients) {
             if (ing.isNull()) continue;
-            if (!recipe.itemValidForRecipe(ing, stack)) return false;
+            if (!validForRecipe(recipe, ing, stack)) return false;
             n += std::max<int>(ing.mStackSize, 1);
         }
         return n == shape.count;
@@ -120,7 +129,7 @@ bool matchesShape(Recipe const& recipe, Shape const& shape, ItemStack const& sta
                 auto const& ing    = recipe.getIngredient(mirror ? w - 1 - x : x, y);
                 bool        filled = shape.isFilled(x, y);
                 if (ing.isNull()) ok = !filled;
-                else ok = filled && ing.mStackSize <= 1 && recipe.itemValidForRecipe(ing, stack);
+                else ok = filled && ing.mStackSize <= 1 && validForRecipe(recipe, ing, stack);
             }
         }
         if (ok) return true;
@@ -155,7 +164,7 @@ bool isReversible(Recipes const& recipes, core::ItemStackData const& result, cor
                 }
             }
         }
-        if (n != 1 || !only || !recipe.itemValidForRecipe(*only, resultStack)) return;
+        if (n != 1 || !only || !validForRecipe(recipe, *only, resultStack)) return;
         if (!sameKind(toData(*out), original)) return;
         found = true;
     });
@@ -196,6 +205,25 @@ void dropCache() {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-variable" // _AutoHookCount inside the macro
 #endif
+#if ABP_LL_VERSION >= 2660
+// Recipes::init gained an asset work queue and the education options in LeviLamina 26.60.
+LL_TYPE_INSTANCE_HOOK(
+    CompactingRecipesInitHook,
+    ll::memory::HookPriority::Normal,
+    Recipes,
+    &Recipes::init,
+    void,
+    ResourcePackManager&     resourcePackManager,
+    ExternalRecipeStore&     recipeStorage,
+    IAssetLoadWorkQueue&     queue,
+    BaseGameVersion const&   baseGameVersion,
+    Experiments const&       experiments,
+    IEducationOptions const& educationOptions
+) {
+    origin(resourcePackManager, recipeStorage, queue, baseGameVersion, experiments, educationOptions);
+    gGeneration.fetch_add(1);
+}
+#else
 LL_TYPE_INSTANCE_HOOK(
     CompactingRecipesInitHook,
     ll::memory::HookPriority::Normal,
@@ -210,6 +238,7 @@ LL_TYPE_INSTANCE_HOOK(
     origin(resourcePackManager, recipeStorage, baseGameVersion, experiments);
     gGeneration.fetch_add(1);
 }
+#endif
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif

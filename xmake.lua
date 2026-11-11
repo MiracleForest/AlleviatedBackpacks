@@ -18,7 +18,23 @@ option("tests")
     set_description("Build the host-side unit test binary (abp-tests)")
 option_end()
 
-add_requires("levilamina 26.51.7", {configs = {target_type = get_config("target_type")}})
+-- The LeviLamina line this build targets. Each supported line is a lip variant
+-- (26_51, 26_60) with its own lock file in locks/; see CONTRIBUTING.md.
+option("levilamina")
+    set_default("26.60.6")
+    set_showmenu(true)
+    set_description("The LeviLamina version to build against, e.g. 26.60.6")
+option_end()
+
+local ll_version = get_config("levilamina") or "26.60.6"
+local ll_major, ll_minor = ll_version:match("^(%d+)%.(%d+)%.")
+if not ll_major then
+    raise("--levilamina must be a major.minor.patch version, got " .. ll_version)
+end
+-- 26.51 -> 2651, 26.60 -> 2660. Source guards read it as ABP_LL_VERSION.
+local ll_code = tonumber(ll_major) * 100 + tonumber(ll_minor)
+
+add_requires("levilamina " .. ll_version, {configs = {target_type = get_config("target_type")}})
 add_requires("levibuildscript")
 add_requires("nlohmann_json v3.12.0")
 if has_config("tests") then
@@ -33,6 +49,7 @@ local function abp_common_flags()
     set_languages("c++20")
     set_toolchains("clang-cl")
     add_defines("NOMINMAX", "UNICODE", "_HAS_CXX23=1")
+    add_defines("ABP_LL_VERSION=" .. ll_code)
     add_cxflags("/utf-8", "/W4")
     add_cxflags(
         "-Wno-microsoft-cast",

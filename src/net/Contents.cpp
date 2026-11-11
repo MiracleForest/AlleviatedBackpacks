@@ -161,7 +161,7 @@ core::screen::RenderInfo buildRenderInfo(game::Backpack const& backpack) {
 
 class ContentsRequestHandler : public ll::network::PacketHandlerBase<ContentsRequestHandler, ContentsRequestPacket> {
 public:
-    void handlePacket(NetworkIdentifier const& source, NetEventCallback& callback, ContentsRequestPacket const& packet) const {
+    void handlePacket(NetworkIdentifier const& source, NetEventCallback& callback, ABP_PACKET_SIDE_PARAM ContentsRequestPacket const& packet) const {
         auto* player = senderOf(source, callback, packet.mSenderSubId);
         if (!player || !packet.valid() || !hasCompanion(*player)) return;
         auto uuid = packet.body.value("uuid", std::string{});
@@ -180,7 +180,7 @@ public:
 
 class RenderInfoRequestHandler : public ll::network::PacketHandlerBase<RenderInfoRequestHandler, RenderInfoRequestPacket> {
 public:
-    void handlePacket(NetworkIdentifier const& source, NetEventCallback& callback, RenderInfoRequestPacket const& packet) const {
+    void handlePacket(NetworkIdentifier const& source, NetEventCallback& callback, ABP_PACKET_SIDE_PARAM RenderInfoRequestPacket const& packet) const {
         auto* player = senderOf(source, callback, packet.mSenderSubId);
         if (!player || !packet.valid() || !hasCompanion(*player)) return;
         auto uuid = packet.body.value("uuid", std::string{});
@@ -193,7 +193,7 @@ public:
 
 class KeyActionHandler : public ll::network::PacketHandlerBase<KeyActionHandler, KeyActionPacket> {
 public:
-    void handlePacket(NetworkIdentifier const& source, NetEventCallback& callback, KeyActionPacket const& packet) const {
+    void handlePacket(NetworkIdentifier const& source, NetEventCallback& callback, ABP_PACKET_SIDE_PARAM KeyActionPacket const& packet) const {
         auto* player = senderOf(source, callback, packet.mSenderSubId);
         if (!player || !packet.valid() || !hasCompanion(*player)) return;
         try {

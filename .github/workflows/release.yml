@@ -9,12 +9,29 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        # One build per supported LeviLamina line (the lip variant of the same name; tools/build.ps1
+        # knows its LeviLamina version and lock file) and per side.
+        include:
+          - variant: "26_60"
+            line: "26.60"
+            target_type: server
+          - variant: "26_60"
+            line: "26.60"
+            target_type: client
+          - variant: "26_51"
+            line: "26.51"
+            target_type: server
+          - variant: "26_51"
+            line: "26.51"
+            target_type: client
+    name: build (${{ matrix.target_type }}, LeviLamina ${{ matrix.line }})
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0 # the mod version comes from the latest tag
 
       - uses: xmake-io/github-action-setup-xmake@v1
 
@@ -22,10 +39,9 @@ jobs:
         with:
           path: |
             ~/AppData/Local/.xmake
-          key: xmake-release-${{ hashFiles('xmake.lua', 'xmake-requires.lock') }}
+          key: xmake-${{ matrix.variant }}-${{ matrix.target_type }}-${{ hashFiles('xmake.lua', 'locks/*.lock') }}
           restore-keys: |
-            xmake-release-
-            xmake-server-
+            xmake-${{ matrix.variant }}-${{ matrix.target_type }}-
 
       - name: Setup LLVM
         uses: ZhongRuoyu/setup-llvm@v0
@@ -38,7 +54,9 @@ jobs:
 
       - name: Build and unit tests
         shell: pwsh
-        run: pwsh tools/build.ps1 -Target all -Tests
+        run: |
+          $tests = if ('${{ matrix.target_type }}' -eq 'server') { @('-Tests') } else { @() }
+          pwsh tools/build.ps1 -Target ${{ matrix.target_type }} -Line ${{ matrix.variant }} @tests
 
       - name: Dump xmake package install logs
         if: failure()
@@ -47,25 +65,47 @@ jobs:
           Get-ChildItem "$env:LOCALAPPDATA/.xmake/cache/packages" -Recurse -Filter install.txt -ErrorAction SilentlyContinue |
             ForEach-Object { Write-Host "::group::$($_.FullName)"; Get-Content $_.FullName -Tail 400; Write-Host '::endgroup::' }
 
-      - name: Check version
+      - name: Check versions
         shell: pwsh
         run: |
           $expected = "${{ github.ref_name }}".TrimStart('v')
-          foreach ($t in 'server', 'client') {
-            $manifest = Get-Content "bin/$t/AlleviatedBackpacks/manifest.json" | ConvertFrom-Json
-            if ($manifest.version -ne $expected) { throw "$t manifest version $($manifest.version) does not match tag $expected" }
-            if ($manifest.platform -ne $t) { throw "$t manifest platform is $($manifest.platform)" }
-          }
-          $tooth = (Get-Content tooth.json | ConvertFrom-Json).version
-          if ($tooth -ne $expected) { throw "tooth.json version $tooth does not match tag $expected" }
+          $t = '${{ matrix.target_type }}'
+          $manifest = Get-Content "bin/$t/AlleviatedBackpacks/manifest.json" | ConvertFrom-Json
+          if ($manifest.version -ne $expected) { throw "$t manifest version $($manifest.version) does not match tag $expected" }
+          if ($manifest.platform -ne $t) { throw "$t manifest platform is $($manifest.platform)" }
+          $declared = (Select-String -Path lip.toml -Pattern '^version = "(.+)"$' | Select-Object -First 1).Matches[0].Groups[1].Value
+          if ($declared -ne $expected) { throw "lip.toml version $declared does not match tag $expected" }
 
       - name: Package
         shell: pwsh
         run: |
-          foreach ($t in 'server', 'client') {
-            Copy-Item COPYING, COPYING.LESSER, README.md -Destination "bin/$t/AlleviatedBackpacks/"
-            Compress-Archive -Path "bin/$t/AlleviatedBackpacks" -DestinationPath "alleviatedbackpacks-$t-windows-x64.zip"
-          }
+          $t = '${{ matrix.target_type }}'
+          Copy-Item COPYING, COPYING.LESSER, README.md -Destination "bin/$t/AlleviatedBackpacks/"
+          # lip's mcmod asset wants manifest.json at the root of the ZIP, with '/' separators.
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::CreateFromDirectory(
+            (Resolve-Path "bin/$t/AlleviatedBackpacks").Path,
+            (Join-Path (Get-Location) "alleviatedbackpacks-$t-win-x64-ll${{ matrix.line }}.zip"),
+            [System.IO.Compression.CompressionLevel]::Optimal,
+            $false
+          )
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zip-${{ matrix.target_type }}-${{ matrix.variant }}
+          path: alleviatedbackpacks-${{ matrix.target_type }}-win-x64-ll${{ matrix.line }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: zip-*
+          merge-multiple: true
 
       - name: Release notes
         shell: pwsh
@@ -82,6 +122,9 @@ jobs:
       - uses: softprops/action-gh-release@v3
         with:
           files: |
-            alleviatedbackpacks-server-windows-x64.zip
-            alleviatedbackpacks-client-windows-x64.zip
+            alleviatedbackpacks-server-win-x64-ll26.60.zip
+            alleviatedbackpacks-client-win-x64-ll26.60.zip
+            alleviatedbackpacks-server-win-x64-ll26.51.zip
+            alleviatedbackpacks-client-win-x64-ll26.51.zip
           body_path: RELEASE_NOTES.md
+          prerelease: ${{ contains(github.ref_name, '-') }}
