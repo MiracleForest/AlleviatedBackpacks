@@ -56,12 +56,12 @@ or server:
 In LeviLauncher, install AlleviatedBackpacks from the **LeviMC Mods** page; it offers the variants
 above, and the default is the newest line.
 
-With [lip](https://github.com/LiteLDev/lip) 0.40.0 or later:
+On a dedicated server, use [lip](https://github.com/LiteLDev/lip) 0.40.0 or later (lip manages
+servers only; in the game, use LeviLauncher):
 
 ```sh
-lip install github.com/MiracleForest/AlleviatedBackpacks#client   # players: in the game folder
-lip install github.com/MiracleForest/AlleviatedBackpacks          # servers: in the server folder
-lip install github.com/MiracleForest/AlleviatedBackpacks#26_51    # Minecraft 1.26.51 (game or server)
+lip install github.com/MiracleForest/AlleviatedBackpacks          # the newest line (26.60)
+lip install github.com/MiracleForest/AlleviatedBackpacks#26_51    # Minecraft 1.26.51
 ```
 
 lip keeps one variant of a mod at a time: to switch variants, `lip uninstall` the installed one

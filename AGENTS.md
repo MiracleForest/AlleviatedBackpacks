@@ -10,7 +10,7 @@ the same name, and `--levilamina` (`tools/build.ps1 -Line`) picks the one being 
 
 | Line | Minecraft | Variant | Built against | Lock file | BDS mod folder |
 | --- | --- | --- | --- | --- | --- |
-| 26.60.x | 1.26.60 | `26_60`, and the default (and `client`) | `--levilamina=26.60.6` (the default) | `locks/26_60.lock` | `mods` |
+| 26.60.x | 1.26.60 | `26_60`, and the default | `--levilamina=26.60.6` (the default) | `locks/26_60.lock` | `mods` |
 | 26.51.x | 1.26.51 | `26_51` | `--levilamina=26.51.7` | `locks/26_51.lock` | `plugins` |
 
 Policy: never copy code or assets from the Java Sophisticated Backpacks repository (behaviour
@@ -179,7 +179,8 @@ its `major.minor.patch`) and `CHANGELOG.md`. Move *Unreleased* in `CHANGELOG.md`
 `.github/workflows/release.yml` builds every line for both targets, checks the versions, and
 publishes `alleviatedbackpacks-{server,client}-win-x64-ll<line>.zip` (lip `mcmod` archives:
 `manifest.json` at the root) with that changelog section as notes; a version with a `-` is a
-prerelease. lip (0.40.0+): `lip install github.com/MiracleForest/AlleviatedBackpacks[#client|#26_51]`.
+prerelease. lip (0.40.0+): `lip install github.com/MiracleForest/AlleviatedBackpacks[#26_51]` (every variant
+has a server and a client entry; there is no `client` variant).
 
 Deploying by hand: copy `bin/server/AlleviatedBackpacks` to `<BDS>/mods/` (LeviLamina 26.60) or
 `<BDS>/plugins/` (LeviLamina 26.51 servers load mods from `plugins`), or

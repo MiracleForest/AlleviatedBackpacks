@@ -13,9 +13,11 @@ logo = "https://raw.githubusercontent.com/MiracleForest/AlleviatedBackpacks/main
 # (Minecraft 1.26.60). Variant names may only hold [a-z0-9_], hence 26_60 and not 26.60. Each line
 # has a server entry (BDS) and a client entry (the game, e.g. through LeviLauncher).
 #
-# The default variant, which servers and earlier releases' server installs use, and the variant
-# "client", which LeviLauncher reaches for first and earlier releases' client installs use, are the
-# newest supported line.
+# The default variant is the newest supported line on both sides. There is no "client" variant:
+# lip and LeviLauncher pick the server or the client entry of a variant by the side they install on.
+#
+# LeviLamina's releases are still tooth.json packages, whose client build is their "client"
+# variant, so the client entries depend on github.com/LiteLDev/LeviLamina#client.
 
 # --- 26.60 (Minecraft 1.26.60) ------------------------------------------------------------------
 
@@ -40,18 +42,6 @@ preserve = ["mods/AlleviatedBackpacks/config/"]
 "github.com/LiteLDev/LeviLamina#client" = "26.60.*"
 
 [[variants."".assets]]
-type = "mcmod"
-urls = ["https://{{id}}/releases/download/v{{version}}/alleviatedbackpacks-client-win-x64-ll26.60.zip"]
-
-[[variants.client]]
-side = "client"
-platform = "win-x64"
-preserve = ["mods/AlleviatedBackpacks/config/"]
-
-[variants.client.deps]
-"github.com/LiteLDev/LeviLamina#client" = "26.60.*"
-
-[[variants.client.assets]]
 type = "mcmod"
 urls = ["https://{{id}}/releases/download/v{{version}}/alleviatedbackpacks-client-win-x64-ll26.60.zip"]
 

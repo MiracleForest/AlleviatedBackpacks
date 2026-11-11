@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- The `client` variant. Every variant (the default, `26_60` and `26_51`) has a server and a client build, and LeviLauncher installs the client build in the game: install the default variant (or `26_51`) there.
+
 ## [0.2.0-beta.1] - 2026-11-11
 
 First beta of 0.2.0. Please report anything that behaves differently from 0.1.2.
