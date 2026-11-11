@@ -55,8 +55,14 @@ jobs:
       - name: Build and unit tests
         shell: pwsh
         run: |
-          $tests = if ('${{ matrix.target_type }}' -eq 'server') { @('-Tests') } else { @() }
-          pwsh tools/build.ps1 -Target ${{ matrix.target_type }} -Line ${{ matrix.variant }} @tests
+          # The unit tests run with the server build. Both calls are spelled out: an `if` yielding
+          # @('-Tests') unrolls it to the string '-Tests', which splats as single characters.
+          if ('${{ matrix.target_type }}' -eq 'server') {
+            pwsh tools/build.ps1 -Target server -Line ${{ matrix.variant }} -Tests
+          } else {
+            pwsh tools/build.ps1 -Target client -Line ${{ matrix.variant }}
+          }
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
       - name: Dump xmake package install logs
         if: failure()
