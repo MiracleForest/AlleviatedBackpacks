@@ -1,0 +1,307 @@
+// Everlasting upgrade: a dropped backpack with this upgrade never despawns, can't be destroyed
+// (fire, lava, cactus, explosions, any damage) and floats up out of liquids and the void, then
+// hovers (`EverlastingBackpackItemEntity`).
+// Applies to every dropped backpack item whose storage has the upgrade, so a backpack dropped on
+// death is everlasting too.
+
+#include "upgrade/everlasting/Everlasting.h"
+
+#include <algorithm>
+#include <cmath>
+#include <optional>
+#include <random>
+#include <unordered_map>
+#include <variant>
+
+#include "ll/api/event/EventBus.h"
+#include "ll/api/event/world/ServerLevelTickEvent.h"
+#include "ll/api/memory/Hook.h"
+
+#include "mc/deps/core/math/Vec3.h"
+#include "mc/world/actor/Actor.h"
+#include "mc/world/actor/ActorDamageSource.h"
+#include "mc/world/actor/ActorFlags.h"
+#include "mc/world/actor/ActorHurtResult.h"
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/actor/HurtParameters.h"
+#include "mc/world/actor/item/ItemActor.h"
+#include "mc/world/actor/player/Player.h"
+#include "mc/world/actor/provider/SynchedActorDataAccess.h"
+#include "mc/world/item/ItemStack.h"
+#include "mc/world/level/BlockSource.h"
+#include "mc/deps/shared_types/v1_26_20/block/MaterialType.h"
+#include "mc/legacy/ActorUniqueID.h"
+#include "mc/world/level/Explosion.h"
+#include "mc/world/level/Level.h"
+#include "mc/world/phys/AABB.h"
+
+#include "feature/wearable/Wearable.h"
+#include "game/BackpackItem.h"
+#include "game/Storage.h"
+#include "mod/Config.h"
+#include "mod/I18n.h"
+#include "mod/Log.h"
+#include "mod/Module.h"
+#include "upgrade/IUpgrade.h"
+#include "upgrade/UpgradeManager.h"
+
+ABP_REGISTER_CONFIG("everlasting", abp::upgrade::everlasting::EverlastingConfig);
+
+namespace abp::upgrade::everlasting {
+
+bool isEverlasting(ItemStack const& stack) {
+    if (stack.isNull() || !game::isBackpack(stack)) return false;
+    auto uuid = game::backpackUuid(stack);
+    if (!uuid) return false;
+    auto& storage = game::Storage::get();
+    if (!storage.available()) return false;
+    auto bp = storage.find(*uuid);
+    return bp && hasActive(*bp, kId);
+}
+
+namespace {
+/// Server-side item actors only: client-side copies (client build) run on the client thread and
+/// must not touch the storage.
+bool everlastingActor(ItemActor const& actor) {
+    if (actor.getLevel().isClientSide()) return false;
+    auto const& stack = actor.item();
+    if (game::isBackpack(stack) && !game::backpackUuid(stack)) {
+        // A backpack dropped by a mob (U19) generates its contents, random upgrades included, on
+        // first open. Generate them now so a rolled Everlasting upgrade protects the drop too.
+        if (auto loot = wearable::pendingLoot(stack); loot && loot->upgrades && game::Storage::get().available()) {
+            auto& mutableStack = const_cast<ItemActor&>(actor).item();
+            bool  changed      = false;
+            (void)game::Storage::get().forItem(mutableStack, &changed);
+        }
+    }
+    return isEverlasting(stack);
+}
+
+} // namespace
+
+namespace {
+// ---- hooks --------------------------------------------------------------------------------------
+
+ActorHurtResult notHurt() {
+    ActorHurtResult r;
+#if ABP_LL_VERSION >= 2660
+    r.mType         = ActorHurtResult::Type::NotHurt;
+    r.mDamageAmount = std::nullopt;
+#else
+    r.mHurtOrDamage = std::variant<bool, float>(false);
+#endif
+    r.mShouldAllowKnockback = false;
+    return r;
+}
+
+// The hook macro defines an unused counter variable.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable"
+LL_TYPE_INSTANCE_HOOK(
+    EverlastingHurtHook,
+    ll::memory::HookPriority::Normal,
+    ItemActor,
+    &ItemActor::$_hurt,
+    ActorHurtResult,
+    ActorDamageSource const& source,
+    float                    damage,
+    HurtParameters const&    params
+) {
+    if (everlastingActor(*this)) return notHurt();
+    return origin(source, damage, params);
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    EverlastingInvulnerableHook,
+    ll::memory::HookPriority::Normal,
+    ItemActor,
+    &ItemActor::$isInvulnerableTo,
+    bool,
+    ActorDamageSource const& source
+) {
+    if (everlastingActor(*this)) return true;
+    return origin(source);
+}
+
+LL_TYPE_INSTANCE_HOOK(
+    EverlastingFireImmuneHook,
+    ll::memory::HookPriority::Normal,
+    ItemActor,
+    &ItemActor::$isFireImmune,
+    bool
+) {
+    if (everlastingActor(*this)) return true;
+    return origin();
+}
+
+// Falling below the world kills items. The entity ignores it (`onBelowWorld` does nothing): below
+// `minY + 1` it counts as "in water" and floats back up (see EverlastingModule::tick).
+LL_TYPE_INSTANCE_HOOK(EverlastingOutOfWorldHook, ll::memory::HookPriority::Normal, Actor, &Actor::$outOfWorld, void) {
+    if (hasType(ActorType::ItemEntity) && everlastingActor(static_cast<ItemActor&>(static_cast<Actor&>(*this)))) return;
+    origin();
+}
+
+// EverlastingBackpackItemEntity.ignoreExplosion: explosions don't push it. Bedrock applies the
+// knock-back inside Explosion::explode (to every entity within twice the radius): remember the
+// motion and position of the everlasting backpacks around and put them back afterwards.
+LL_TYPE_INSTANCE_HOOK(EverlastingExplosionHook, ll::memory::HookPriority::Normal, Explosion, &Explosion::explode, bool, ::IRandom& random) {
+    struct Kept {
+        ActorUniqueID id;
+        Vec3          pos;
+        Vec3          delta;
+    };
+    std::vector<Kept> kept;
+    BlockSource&      region = mRegion;
+    if (!region.getLevel().isClientSide()) {
+        Vec3  centre = mPos;
+        float reach  = static_cast<float>(mRadius) * 2.0f + 1.0f;
+        for (auto* a : region.getEntities(AABB(centre - Vec3{reach, reach, reach}, centre + Vec3{reach, reach, reach}), 0.0f)) {
+            if (!a || a->mRemoved || !a->hasType(ActorType::ItemEntity)) continue;
+            auto& item = static_cast<ItemActor&>(*a);
+            if (!game::isBackpack(item.item()) || !everlastingActor(item)) continue;
+            kept.push_back({a->getOrCreateUniqueID(), a->getPosition(), a->getPosDelta()});
+        }
+    }
+    bool result = origin(random);
+    for (auto const& k : kept) {
+        auto* a = region.getLevel().fetchEntity(k.id, false);
+        if (!a || a->mRemoved) continue;
+        const_cast<Vec3&>(a->getPosDelta()) = k.delta;
+        if (a->getPosition().distanceTo(k.pos) > 0.0001f) a->_setPos(k.pos);
+    }
+    return result;
+}
+#pragma clang diagnostic pop
+} // namespace
+
+// ---- the upgrade --------------------------------------------------------------------------------
+
+class EverlastingUpgrade : public IUpgrade {
+public:
+    [[nodiscard]] UpgradeInfo const& info() const override {
+        static UpgradeInfo const info{
+            .id           = std::string(kId),
+            .itemId       = "alleviatedbackpacks:everlasting_upgrade",
+            .nameKey      = "abp.everlasting.name",
+            .nameFallback = "Everlasting Upgrade",
+            .toggleable   = false,
+            .existsKey      = "abp.everlasting.error.exists",
+            .existsFallback = "There's already Everlasting Upgrade in another upgrade slot",
+        };
+        return info;
+    }
+
+    [[nodiscard]] std::vector<std::string> describe(Player& player, UpgradeContext const&) const override {
+        return {
+            trFor(player, "abp.everlasting.describe1", "§7Backpack becomes indestructible"),
+            trFor(player, "abp.everlasting.describe2", "§7Can't despawn or fall into void"),
+        };
+    }
+};
+
+ABP_REGISTER_UPGRADE(EverlastingUpgrade);
+
+// ---- module -------------------------------------------------------------------------------------
+
+/// `EverlastingBackpackItemEntity` for Bedrock item actors: every tick a dropped everlasting
+/// backpack never ages (lifespan = max), shows a happy villager particle with a 1/20 chance, and
+/// while it still has gravity: in water or lava (or below `minY + 1`, which the mod treats as water) it
+/// floats up (`dy = min(0.7, dy + 0.06)`, vanilla's bubble column rise); once out after floating it
+/// hovers for good (no gravity, zero velocity). Invulnerability and fire immunity are the hooks above.
+class EverlastingModule {
+public:
+    void install() {
+        EverlastingHurtHook::hook();
+        EverlastingInvulnerableHook::hook();
+        EverlastingFireImmuneHook::hook();
+        EverlastingOutOfWorldHook::hook();
+        EverlastingExplosionHook::hook();
+        mListener = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerLevelTickEvent>(
+            [this](ll::event::ServerLevelTickEvent& ev) { tick(ev.level()); }
+        );
+    }
+    void uninstall() {
+        ll::event::EventBus::getInstance().removeListener(mListener);
+        mTracked.clear();
+        EverlastingExplosionHook::unhook();
+        EverlastingOutOfWorldHook::unhook();
+        EverlastingFireImmuneHook::unhook();
+        EverlastingInvulnerableHook::unhook();
+        EverlastingHurtHook::unhook();
+    }
+
+private:
+    struct State {
+        bool                floatingUp = false; ///< `wasFloatingUp` (not persisted)
+        std::optional<Vec3> hover;              ///< where it hovers (no gravity, no motion)
+    };
+
+    void tick(Level& level) {
+        if (!game::Storage::get().available()) return;
+        // Discover dropped everlasting backpacks (a storage lookup each) every few ticks; tracked
+        // ones are processed every tick, as the entity tick.
+        if (++mTicks >= std::max(1, config::get<EverlastingConfig>().checkInterval)) {
+            mTicks = 0;
+            for (auto* actor : level.getRuntimeActorList()) {
+                if (!actor || actor->mRemoved || !actor->hasType(ActorType::ItemEntity)) continue;
+                auto id = actor->getOrCreateUniqueID().rawID;
+                if (mTracked.contains(id)) continue;
+                auto& item = static_cast<ItemActor&>(*actor);
+                if (game::isBackpack(item.item()) && everlastingActor(item)) mTracked.emplace(id, State{});
+            }
+        }
+        for (auto it = mTracked.begin(); it != mTracked.end();) {
+            ActorUniqueID uid;
+            uid.rawID   = it->first;
+            auto* actor = level.fetchEntity(uid, false);
+            if (!actor || actor->mRemoved || !actor->hasType(ActorType::ItemEntity)) {
+                it = mTracked.erase(it);
+                continue;
+            }
+            tickOne(level, static_cast<ItemActor&>(*actor), it->second);
+            ++it;
+        }
+    }
+
+    void tickOne(Level& level, ItemActor& item, State& state) {
+        item.age() = 0; // never reaches the despawn age
+        auto pos   = item.getPosition();
+        if (mRandom() % 20 == 0) {
+            std::uniform_real_distribution<float> d(-0.5f, 0.5f), h(0.0f, 0.5f);
+            Vec3 at{pos.x + d(mRandom), pos.y + h(mRandom), pos.z + d(mRandom)};
+            level.spawnParticleEffect("minecraft:villager_happy", at, &item.getDimension());
+        }
+        auto& delta = const_cast<Vec3&>(item.getPosDelta());
+        if (state.hover) {
+            // Hovering for good (no gravity, zero motion). Bedrock's item physics turns gravity
+            // back on and pulls items down: keep it where it stopped.
+            if (item.getStatusFlag(ActorFlags::HasGravity)) {
+                SynchedActorDataAccess::setActorFlag(item.getEntityContext(), ActorFlags::HasGravity, false);
+            }
+            delta = Vec3::ZERO();
+            if (pos.distanceTo(*state.hover) > 0.001f) item._setPos(*state.hover);
+            return;
+        }
+        if (!item.getStatusFlag(ActorFlags::HasGravity)) return; // only while it has gravity
+        auto& region  = item.getDimensionBlockSource();
+        bool  inWater = item.isInWater() || pos.y < static_cast<float>(region.getMinHeight()) + 1.0f;
+        bool  inLava  = !inWater && region.containsMaterial(item.getAABB(), SharedTypes::v1_26_20::MaterialType::Lava);
+        if (inWater || inLava) {
+            delta.y          = std::min(0.7f, delta.y + 0.06f);
+            state.floatingUp = true;
+        } else if (state.floatingUp) {
+            SynchedActorDataAccess::setActorFlag(item.getEntityContext(), ActorFlags::HasGravity, false);
+            delta       = Vec3::ZERO();
+            state.hover = pos;
+        }
+    }
+
+    ll::event::ListenerPtr                   mListener;
+    int                                      mTicks = 0;
+    std::unordered_map<std::int64_t, State>  mTracked;
+    std::minstd_rand                         mRandom{std::random_device{}()};
+};
+
+} // namespace abp::upgrade::everlasting
+
+ABP_REGISTER_MODULE(abp::upgrade::everlasting::EverlastingModule);

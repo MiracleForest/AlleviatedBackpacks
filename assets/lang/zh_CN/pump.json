@@ -1,0 +1,14 @@
+{
+  "abp.pump.name": "液泵升级",
+  "abp.pump.advanced.name": "高级液泵升级",
+  "abp.pump.tab": "液泵",
+  "abp.pump.tab.tooltip": "泵",
+  "abp.pump.advanced.tab": "高级液泵",
+  "abp.pump.advanced.tab.tooltip": "高级泵",
+  "abp.pump.button.input": "输入",
+  "abp.pump.button.output": "输出",
+  "abp.pump.button.interact_with_world": "与世界中方块交互",
+  "abp.pump.button.do_not_interact_with_world": "不与世界中方块交互",
+  "abp.pump.button.interact_with_hand": "与手持流体容器交互",
+  "abp.pump.button.do_not_interact_with_hand": "不与手持流体容器交互"
+}

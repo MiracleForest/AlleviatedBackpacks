@@ -1,0 +1,20 @@
+{
+  "abp.inception.error.exists": "另一插槽中已存在嵌套升级",
+  "abp.inception.name": "嵌套升级",
+  "abp.inception.tooltip": "§7使背包套背包成为可能",
+  "abp.inception.tab": "嵌套",
+  "abp.inception.tab.tooltip": "嵌套设置",
+  "abp.inception.inventory_order_main_first": "主背包升级优先生效",
+  "abp.inception.inventory_order_incepted_first": "内背包升级优先生效",
+  "abp.inception.error.sub_backpack": "嵌套升级只能加装至顶级背包中",
+  "abp.inception.error.remove_sub_backpack": "该背包中有一个或多个背包",
+  "abp.inception.error.open": "无法打开那个背包。",
+  "abp.inception.back": "返回外层背包",
+  "abp.inception.back_lore": "§7返回 §f{}",
+  "abp.inception.open": "内层背包（{}）",
+  "abp.inception.open_label": "内层背包",
+  "abp.inception.open_lore1": "§7点击打开存放在这里的背包。",
+  "abp.inception.open_lore2": "§7提示：在存放的背包上按 Q 即可打开。",
+  "abp.inception.choose": "打开内层背包",
+  "abp.inception.none_inside": "这个背包里没有背包。"
+}

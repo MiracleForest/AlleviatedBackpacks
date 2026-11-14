@@ -1,0 +1,42 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "alleviatedbackpacks:advanced_pump_upgrade"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "DID",
+      "GPG",
+      "RRR"
+    ],
+    "key": {
+      "D": {
+        "item": "minecraft:diamond"
+      },
+      "I": {
+        "item": "minecraft:dispenser"
+      },
+      "G": {
+        "item": "minecraft:gold_ingot"
+      },
+      "P": {
+        "item": "alleviatedbackpacks:pump_upgrade"
+      },
+      "R": {
+        "item": "minecraft:redstone"
+      }
+    },
+    "unlock": [
+      {
+        "item": "alleviatedbackpacks:pump_upgrade"
+      }
+    ],
+    "result": {
+      "item": "alleviatedbackpacks:advanced_pump_upgrade",
+      "count": 1
+    }
+  }
+}

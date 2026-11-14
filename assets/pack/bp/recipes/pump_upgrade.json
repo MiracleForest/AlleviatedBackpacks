@@ -1,0 +1,42 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "alleviatedbackpacks:pump_upgrade"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "GUG",
+      "PBS",
+      "GUG"
+    ],
+    "key": {
+      "G": {
+        "tag": "alleviatedbackpacks:glass_blocks"
+      },
+      "U": {
+        "item": "minecraft:bucket"
+      },
+      "P": {
+        "item": "minecraft:piston"
+      },
+      "B": {
+        "item": "alleviatedbackpacks:upgrade_base"
+      },
+      "S": {
+        "item": "minecraft:sticky_piston"
+      }
+    },
+    "unlock": [
+      {
+        "item": "alleviatedbackpacks:upgrade_base"
+      }
+    ],
+    "result": {
+      "item": "alleviatedbackpacks:pump_upgrade",
+      "count": 1
+    }
+  }
+}

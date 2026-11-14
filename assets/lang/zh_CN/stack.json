@@ -1,0 +1,14 @@
+{
+  "abp.stack.stack_starter.name": "堆叠升级青春版",
+  "abp.stack.stack_tier_1.name": "堆叠升级T1",
+  "abp.stack.stack_tier_2.name": "堆叠升级T2",
+  "abp.stack.stack_tier_3.name": "堆叠升级T3",
+  "abp.stack.stack_tier_4.name": "堆叠升级T4",
+  "abp.stack.stack_omega.name": "欧米伽堆叠升级",
+  "abp.stack.stack_downgrade_tier_1.name": "一级堆叠降级",
+  "abp.stack.stack_downgrade_tier_2.name": "二级堆叠降级",
+  "abp.stack.stack_downgrade_tier_3.name": "三级堆叠降级",
+  "abp.stack.error.low_multiplier": "有槽位或升级的内容需要高于{}的堆叠倍数",
+  "abp.stack.describe.multiplier": "§7堆叠倍数：§f{}",
+  "abp.stack.describe.total": "§7槽位上限（所有堆叠升级）：§f{}"
+}

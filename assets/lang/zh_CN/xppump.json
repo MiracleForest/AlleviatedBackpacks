@@ -1,0 +1,20 @@
+{
+  "abp.xppump.name": "经验泵升级",
+  "abp.xppump.tab": "经验泵",
+  "abp.xppump.tab.tooltip": "经验泵",
+  "abp.xppump.button.input": "从玩家泵入经验",
+  "abp.xppump.button.output": "向玩家泵出经验",
+  "abp.xppump.button.keep": "维持玩家经验等级",
+  "abp.xppump.button.off": "取消泵送",
+  "abp.xppump.button.store_all_experience": "储存全部经验",
+  "abp.xppump.button.take_all_experience": "取出全部经验",
+  "abp.xppump.button.store_levels": "储存{}级经验",
+  "abp.xppump.button.store_levels.controls": "用滚轮调整数值",
+  "abp.xppump.button.take_levels": "取出{}级经验",
+  "abp.xppump.button.take_levels.controls": "用滚轮调整数值",
+  "abp.xppump.button.mend_items": "用经验修补修复物品",
+  "abp.xppump.button.do_not_mend_items": "不修复物品",
+  "abp.xppump.level_select": "{}级",
+  "abp.xppump.level_select.tooltip": "保留经验等级",
+  "abp.xppump.level_select.tooltip.controls": "用滚轮调整数值"
+}

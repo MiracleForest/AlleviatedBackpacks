@@ -1,0 +1,23 @@
+{
+  "abp.tank.name": "Tank Upgrade",
+  "abp.tank.tab": "Tank",
+  "abp.tank.tab.tooltip": "Tank",
+  "abp.tank.contents_tooltip": "{} mB out of {} mB",
+  "abp.tank.xp_contents_tooltip": "{} out of {} xp levels",
+  "abp.tank.slot.input": "Input",
+  "abp.tank.slot.output": "Output",
+  "abp.tank.contents": "§b{}: §f{} §7/ {} mB",
+  "abp.tank.empty": "§7Empty §8({} mB)",
+  "abp.tank.error.two_tanks": "There are already two Tank Upgrades in other upgrade slots",
+  "abp.tank.error.capacity_high": "Backpack can't support this tank upgrade. Upgrade backpack or add stack multiplier to get at least {}x higher capacity",
+  "abp.columns.needs_occupied_slots": "There's an item in at least one of the last {} slots needed for {}",
+  "abp.tank.fluid.water": "Water",
+  "abp.tank.fluid.lava": "Lava",
+  "abp.tank.fluid.milk": "Milk",
+  "abp.tank.fluid.powder_snow": "Powder Snow",
+  "abp.tank.fluid.honey": "Honey",
+  "abp.tank.fluid.experience": "Experience",
+  "abp.tank.fluid.potion": "Potion #{}",
+  "abp.tank.fluid.splash_potion": "Splash Potion #{}",
+  "abp.tank.fluid.lingering_potion": "Lingering Potion #{}"
+}

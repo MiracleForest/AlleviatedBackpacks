@@ -1,0 +1,12 @@
+{
+  "abp.upgrade.deposit.name": "Deposit Upgrade",
+  "abp.upgrade.advanced_deposit.name": "Advanced Deposit Upgrade",
+  "abp.deposit.tab": "Deposit",
+  "abp.deposit.tab.tooltip": "Deposit Settings",
+  "abp.deposit.tab.advanced": "Adv. Deposit",
+  "abp.deposit.tab.advanced.tooltip": "Advanced Deposit Settings",
+  "abp.deposit.contents": "Match Inventory Contents: {}",
+  "abp.deposit.describe.contents": "§7Match Inventory Contents",
+  "abp.deposit.status.stacks_deposited": "{} stacks deposited to inventory",
+  "abp.deposit.status.nothing_to_deposit": "No stacks could be deposited to inventory"
+}

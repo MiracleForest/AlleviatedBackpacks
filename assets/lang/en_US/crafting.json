@@ -1,0 +1,11 @@
+{
+  "abp.crafting.name": "Crafting Upgrade",
+  "abp.crafting.tooltip": "§7Crafting table in an upgrade tab",
+  "abp.crafting.tab": "Craft",
+  "abp.crafting.tab.tooltip": "Crafting",
+  "abp.crafting.shift_click_into_backpack": "Shift Click Result Into\nBackpack",
+  "abp.crafting.shift_click_into_inventory": "Shift Click Result Into\nPlayer's Inventory",
+  "abp.crafting.previous_result": "Previous",
+  "abp.crafting.next_result": "Next",
+  "abp.crafting.select_result": "Select Result"
+}

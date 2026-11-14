@@ -1,0 +1,11 @@
+{
+  "abp.crafting.name": "合成升级",
+  "abp.crafting.tooltip": "§7在升级标签页中添加一个工作台",
+  "abp.crafting.tab": "合成",
+  "abp.crafting.tab.tooltip": "合成",
+  "abp.crafting.shift_click_into_backpack": "Shift右击将成品放入\n背包",
+  "abp.crafting.shift_click_into_inventory": "Shift右击将成品放入\n玩家物品栏",
+  "abp.crafting.previous_result": "上一项",
+  "abp.crafting.next_result": "下一项",
+  "abp.crafting.select_result": "选择结果"
+}

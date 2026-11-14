@@ -1,0 +1,12 @@
+{
+  "abp.upgrade.restock.name": "取货升级",
+  "abp.upgrade.advanced_restock.name": "高级取货升级",
+  "abp.restock.tab": "取货",
+  "abp.restock.tab.tooltip": "取货设置",
+  "abp.restock.tab.advanced": "高级取货",
+  "abp.restock.tab.advanced.tooltip": "高级取货设置",
+  "abp.restock.contents": "匹配背包内容：{}",
+  "abp.restock.describe.contents": "§7依照背包已有物品取出",
+  "abp.restock.status.stacks_restocked": "已从容器中提取{}堆物品",
+  "abp.restock.status.nothing_to_restock": "容器内没有可以提取的物品"
+}

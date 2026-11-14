@@ -1,0 +1,542 @@
+// Magnet upgrade (basic + advanced): pulls nearby item entities into the backpack and turns XP orbs
+// into liquid experience in the backpack's tanks. See Magnet.h.
+
+#include "upgrade/magnet/Magnet.h"
+
+#include <algorithm>
+#include <cmath>
+#include <exception>
+#include <random>
+#include <vector>
+
+#include "mc/deps/core/math/Vec3.h"
+#include "mc/deps/nbt/CompoundTag.h"
+#include "mc/network/MinecraftPacketIds.h"
+#include "mc/network/MinecraftPackets.h"
+#include "mc/network/packet/PlaySoundPacket.h"
+#include "mc/world/actor/ActorType.h"
+#include "mc/world/actor/item/ExperienceOrb.h"
+#include "mc/world/actor/item/ItemActor.h"
+#include "mc/world/actor/player/Player.h"
+#include "mc/world/item/ItemStack.h"
+#include "mc/world/level/BlockSource.h"
+#include "mc/world/level/Level.h"
+#include "mc/world/level/Spawner.h"
+#include "mc/world/level/Tick.h"
+#include "mc/world/phys/AABB.h"
+
+#include "api/BackpackCapabilities.h"
+#include "api/Service.h"
+#include "api/abp/Capabilities.h"
+#include "api/abp/Xp.h"
+#include "feature/gui/Gui.h"
+#include "game/ItemConv.h"
+#include "game/PlayerScan.h"
+#include "mod/Config.h"
+#include "mod/I18n.h"
+#include "mod/Log.h"
+#include "mod/Module.h"
+#include "ui/menu/BackpackMenu.h"
+#include "ui/menu/FilterMenu.h"
+#include "ui/menu/MenuManager.h"
+#include "net/NativeScreens.h"
+#include "upgrade/UpgradeManager.h"
+#include "upgrade/filter/FilterCommon.h"
+#include "upgrade/inception/Inception.h"
+#include "upgrade/magnet/MagnetInternal.h"
+
+ABP_REGISTER_CONFIG("magnet", abp::upgrade::magnet::MagnetConfig);
+
+namespace abp::upgrade::magnet {
+
+// ---- config / settings -----------------------------------------------------------------------
+
+MagnetTierConfig tierConfig(bool advanced) {
+    auto const& cfg = config::get<MagnetConfig>();
+    auto        c   = advanced ? cfg.advancedMagnetUpgrade : cfg.magnetUpgrade;
+    c.filterSlots   = std::clamp(c.filterSlots, 1, 20);
+    c.slotsInRow    = std::clamp(c.slotsInRow, 1, 6);
+    c.magnetRange   = std::clamp(c.magnetRange, 1, 20);
+    return c;
+}
+
+Settings Settings::read(nlohmann::json const& settings, int filterSlots, bool advanced) {
+    Settings s;
+    // ContentsFilterLogic: a block list by default (an empty one matches everything).
+    s.filter = filtering::read(settings, filterSlots, {}, "magnet");
+    filtering::normalize(s.filter, advanced ? UpgradeTier::Advanced : UpgradeTier::Basic, filterSlots);
+    if (!settings.is_object()) return s;
+    if (auto it = settings.find("pickupItems"); it != settings.end() && it->is_boolean()) s.pickupItems = it->get<bool>();
+    if (auto it = settings.find("pickupXp"); it != settings.end() && it->is_boolean()) s.pickupXp = it->get<bool>();
+    return s;
+}
+
+filtering::FilterSpec filterSpec(bool advanced) {
+    auto tc = tierConfig(advanced);
+    return filtering::FilterSpec{tc.filterSlots, tc.slotsInRow, advanced, filtering::TypeButton::Contents};
+}
+
+bool matchesFilter(Settings const& s, game::Backpack& backpack, core::ItemStackData const& item) {
+    return filtering::matchesContents(s.filter, backpack, item);
+}
+
+// ---- XP consumers (other units) ----------------------------------------------------------------
+
+namespace {
+struct ConsumerEntry {
+    std::string owner;
+    int         priority;
+    XpConsumer  fn;
+};
+std::vector<ConsumerEntry>& consumers() {
+    static std::vector<ConsumerEntry> v;
+    return v;
+}
+} // namespace
+
+void addXpConsumer(std::string owner, int priority, XpConsumer fn) {
+    auto& v  = consumers();
+    auto  it = std::upper_bound(v.begin(), v.end(), priority, [](int p, ConsumerEntry const& e) { return p < e.priority; });
+    v.insert(it, ConsumerEntry{std::move(owner), priority, std::move(fn)});
+}
+
+void removeXpConsumers(std::string const& owner) {
+    std::erase_if(consumers(), [&](ConsumerEntry const& e) { return e.owner == owner; });
+}
+
+int offerXp(UpgradeContext const& magnet, Player* carrier, int amount) {
+    auto list = consumers(); // a consumer may (un)register consumers
+    for (auto const& c : list) {
+        if (amount <= 0) break;
+        try {
+            amount -= std::clamp(c.fn(magnet, carrier, amount), 0, amount);
+        } catch (std::exception const& e) {
+            log().error("magnet XP consumer {} failed: {}", c.owner, e.what());
+        }
+    }
+    return amount;
+}
+
+// ---- world helpers ---------------------------------------------------------------------------
+
+int orbValue(ExperienceOrb const& orb) {
+    CompoundTag tag;
+    orb.addAdditionalSaveData(tag);
+    for (auto key : {"experience value", "experienceValue", "Value"}) {
+        if (tag.contains(key) && tag[key].is_number_integer()) return static_cast<int>(tag[key]);
+    }
+    return 0;
+}
+
+AABB rangeBox(BlockPos const& pos, int range) {
+    auto r = static_cast<float>(range);
+    return AABB{
+        Vec3{static_cast<float>(pos.x) - r, static_cast<float>(pos.y) - r, static_cast<float>(pos.z) - r},
+        Vec3{static_cast<float>(pos.x) + 1 + r, static_cast<float>(pos.y) + 1 + r, static_cast<float>(pos.z) + 1 + r}
+    };
+}
+
+BlockPos carrierPos(Player& player) {
+    auto f = player.getFeetPos();
+    return BlockPos{static_cast<int>(std::floor(f.x)), static_cast<int>(std::floor(f.y)), static_cast<int>(std::floor(f.z))};
+}
+
+bool isBlockedByTags(Actor& entity, bool carried) {
+    bool prevent = entity.hasTag(kPreventRemoteMovement);
+    return carried ? prevent : prevent && !entity.hasTag(kAllowMachineMovement);
+}
+
+bool isItemPullable(ItemActor& item, bool carried) {
+    // pickupItems: alive and not blocked; the pickup delay is not looked at. (An entity
+    // without an item is skipped as well: there is nothing to insert.)
+    if (item.mRemoved || !item.isAlive() || item.item().isNull()) return false;
+    return !isBlockedByTags(item, carried);
+}
+
+bool canFillStorageWithXp(std::shared_ptr<game::Backpack> const& backpack) {
+    auto handler = api::backpack::fluidHandler(backpack);
+    // fill(EXPERIENCE_TAG, 1, XP_STILL, SIMULATE) - an XP fluid already in a tank, else ours.
+    return handler
+        && api::fillTagged(api::service(), *handler, api::fluid_tags::Experience, 1, {std::string(api::fluids::Experience), 1}, true) > 0;
+}
+
+namespace {
+
+std::minstd_rand& rng() {
+    static std::minstd_rand r{std::random_device{}()};
+    return r;
+}
+float nextFloat() { return std::uniform_real_distribution<float>(0.f, 1.f)(rng()); }
+
+/// `level.playSound(null, player.x/y/z, sound, PLAYERS, volume, pitch)`: heard by the players
+/// around the carrier.
+void playSound(Player& player, char const* sound, float volume, float pitch) {
+    auto at  = player.getPosition();
+    auto dim = player.getDimensionId();
+    player.getLevel().forEachPlayer([&](Player& p) {
+        if (p.getDimensionId() != dim) return true;
+        auto d = p.getPosition() - at;
+        if (d.x * d.x + d.y * d.y + d.z * d.z > 16.f * 16.f) return true;
+        auto  pkt = MinecraftPackets::createPacket(MinecraftPacketIds::PlaySound);
+        auto& s   = static_cast<PlaySoundPacket&>(*pkt);
+        s.mName   = sound;
+        s.mPos    = BlockPos{
+            static_cast<int>(std::floor(at.x * 8.0f)),
+            static_cast<int>(std::floor(at.y * 8.0f)),
+            static_cast<int>(std::floor(at.z * 8.0f))
+        };
+        s.mVolume                   = volume;
+        s.mPitch                    = pitch;
+        s.mLoopCount                = 0;
+        s.mBypassListenerRangeCheck = false;
+        s.mServerSoundHandle->reset();
+        s.mPlaybackPositionSeconds->reset();
+        s.sendTo(p);
+        return true;
+    });
+}
+
+void playItemPickupSound(Player& player) {
+    playSound(player, "random.pop", 0.2f, (nextFloat() - nextFloat()) * 1.4f + 2.0f);
+}
+void playXpPickupSound(Player& player) {
+    playSound(player, "random.orb", 0.1f, (nextFloat() - nextFloat()) * 0.35f + 0.9f);
+}
+
+} // namespace
+
+int insertForUpgrade(UpgradeContext const& ctx, core::ItemStackData const& item, Player* player) {
+    // getInventoryForUpgradeProcessing: with Inception also the backpacks stored inside.
+    int  taken = 0;
+    auto rest  = item;
+    for (auto const& bp : inception::upgradeInventories(ctx.backpackPtr())) {
+        if (rest.empty()) break;
+        auto r      = bp->inventory().insert(rest, core::AccessContext{core::Source::Pickup, player});
+        int  n      = r.inserted + r.voided;
+        taken      += n;
+        rest        = rest.withCount(rest.count - n);
+    }
+    return taken;
+}
+
+namespace {
+
+/// `tryToInsertItem`. True if (part of) the stack went in.
+bool tryToInsertItem(UpgradeContext const& ctx, Player* player, ItemActor& entity) {
+    auto& stack = entity.item();
+    auto  data  = game::ItemConv::toData(stack);
+    if (data.empty()) return false;
+    int taken = insertForUpgrade(ctx, data, player);
+    if (taken <= 0) return false;
+    if (taken < data.count) {
+        // setItem(remaining). Clients don't see count changes of an existing item entity, so
+        // the rest becomes a fresh entity at the same place.
+        ItemStack rest = stack;
+        rest.set(data.count - taken);
+        auto& region = entity.getDimensionBlockSource();
+        if (auto* fresh = region.getLevel().getSpawner().spawnItem(region, rest, nullptr, entity.getPosition(), 0)) {
+            fresh->pickupDelay() = entity.pickupDelay();
+            const_cast<Vec3&>(fresh->getPosDelta()) = Vec3{0.0f, 0.0f, 0.0f};
+        }
+    }
+    entity.remove();
+    return true;
+}
+
+int pickupItems(UpgradeContext const& ctx, Settings const& s, Player* player, BlockSource& region, BlockPos const& pos, int range) {
+    auto actors = region.getEntities(rangeBox(pos, range), 2.0f, ActorType::ItemEntity);
+    std::vector<ItemActor*> items;
+    for (auto* a : actors) {
+        if (a && a->isType(ActorType::ItemEntity)) items.push_back(static_cast<ItemActor*>(a));
+    }
+    if (items.empty()) return kCooldownTicks;
+    // pickupItems: the short cooldown, unless an eligible item could not be inserted.
+    auto& bp       = ctx.backpack();
+    int   cooldown = kCooldownTicks;
+    for (auto* item : items) {
+        if (!isItemPullable(*item, player != nullptr)) continue;
+        if (!matchesFilter(s, bp, game::ItemConv::toData(item->item()))) continue;
+        if (tryToInsertItem(ctx, player, *item)) {
+            if (player) playItemPickupSound(*player);
+        } else {
+            cooldown = kFullCooldownTicks;
+        }
+    }
+    return cooldown;
+}
+
+/// `tryToFillTank`.
+bool tryToFillTank(UpgradeContext const& ctx, ExperienceOrb& orb, Player* player, BlockSource& region) {
+    auto handler = api::backpack::fluidHandler(ctx.backpackPtr());
+    if (!handler) return false;
+    int amount = api::xp::experienceToLiquid(static_cast<float>(orbValue(orb)));
+    if (amount <= 0) return false;
+    int added = api::fillTagged(api::service(), *handler, api::fluid_tags::Experience, amount, {std::string(api::fluids::Experience), amount}, false);
+    if (added <= 0) return false;
+    auto pos = orb.getPosition();
+    orb.remove();
+    if (player) playXpPickupSound(*player);
+    if (amount > added) {
+        int rest = static_cast<int>(api::xp::liquidToExperience(amount - added));
+        if (rest > 0) ExperienceOrb::_spawnOrb(region, region.getLevel(), pos, rest);
+    }
+    return true;
+}
+
+int pickupXpOrbs(UpgradeContext const& ctx, Player* player, BlockSource& region, BlockPos const& pos, int range) {
+    auto actors = region.getEntities(rangeBox(pos, range), 2.0f, ActorType::Experience);
+    std::vector<ExperienceOrb*> orbs;
+    for (auto* a : actors) {
+        if (a && a->isType(ActorType::Experience)) orbs.push_back(static_cast<ExperienceOrb*>(a));
+    }
+    if (orbs.empty()) return kCooldownTicks;
+    int cooldown = kCooldownTicks;
+    for (auto* orb : orbs) {
+        if (orb->mRemoved || !orb->isAlive() || isBlockedByTags(*orb, player != nullptr)) continue;
+        if (!tryToFillTank(ctx, *orb, player, region)) {
+            cooldown = kFullCooldownTicks;
+            break;
+        }
+    }
+    return cooldown;
+}
+
+} // namespace
+
+int runMagnet(UpgradeContext const& ctx, Player* player, BlockSource& region, BlockPos const& pos) {
+    auto* type = upgradeFor(ctx.state().item);
+    bool  adv  = type && type->info().id == kAdvancedId;
+    auto  tc   = tierConfig(adv);
+    auto  s    = Settings::read(ctx.settings(), tc.filterSlots, adv);
+    int   cooldown = s.pickupItems ? pickupItems(ctx, s, player, region, pos, tc.magnetRange) : kFullCooldownTicks;
+    if (s.pickupXp && canFillStorageWithXp(ctx.backpackPtr())) {
+        cooldown = std::min(cooldown, pickupXpOrbs(ctx, player, region, pos, tc.magnetRange));
+    }
+    return cooldown;
+}
+
+// ---- cooldown (MagnetUpgradeWrapper.tick + UpgradeWrapperBase cooldown) -----------------
+
+namespace {
+/// Runtime cooldown of one installed magnet (UpgradeWrapperBase `cooldown`).
+struct CooldownState {
+    std::int64_t until = 0;
+};
+} // namespace
+
+bool tickWithCooldown(UpgradeContext const& ctx, Player* player, BlockSource& region, BlockPos const& pos, std::int64_t now) {
+    auto& state = ctx.transient<CooldownState>();
+    if (state.until > now) return false; // UpgradeWrapperBase.isInCooldown
+    state.until = now + runMagnet(ctx, player, region, pos);
+    return true;
+}
+
+namespace {
+
+class MagnetUpgrade : public IUpgrade {
+public:
+    explicit MagnetUpgrade(bool advanced) : mAdvanced(advanced) {
+        mInfo.id             = std::string(advanced ? kAdvancedId : kBasicId);
+        mInfo.itemId         = "alleviatedbackpacks:" + mInfo.id + "_upgrade";
+        mInfo.nameKey        = "abp.magnet." + mInfo.id + ".name";
+        mInfo.nameFallback   = advanced ? "Advanced Magnet Upgrade" : "Magnet Upgrade";
+        mInfo.tier           = advanced ? UpgradeTier::Advanced : UpgradeTier::Basic;
+        mInfo.group          = "magnet";
+        mInfo.maxPerBackpack = kUnlimitedPerBackpack; // no maxUpgradesPerStorage entry
+        mInfo.hasSettings    = true;
+        mInfo.toggleable     = true;
+    }
+
+    [[nodiscard]] UpgradeInfo const& info() const override { return mInfo; }
+    [[nodiscard]] Settings settings(UpgradeContext const& ctx) const {
+        return Settings::read(ctx.settings(), tierConfig(mAdvanced).filterSlots, mAdvanced);
+    }
+
+    // MagnetUpgradeWrapper.pickup (IPickupResponseUpgrade): walking over items works
+    // like a Pickup upgrade.
+    void onPickup(UpgradeContext const& ctx, core::ItemStackData& item) override {
+        auto s = settings(ctx);
+        if (!s.pickupItems || !matchesFilter(s, ctx.backpack(), item)) return;
+        item.count -= insertForUpgrade(ctx, item, ctx.player());
+    }
+
+    // Carried: the upgrade ticker (every `general.upgradeTickInterval` ticks) runs the magnet
+    // around the carrier's block whenever its own cooldown has passed.
+    void onTick(TickContext const& tick) override {
+        auto now = static_cast<std::int64_t>(tick.player.getLevel().getCurrentServerTick().tickID);
+        (void)tickWithCooldown(tick.ctx, &tick.player, tick.player.getDimensionBlockSource(), carrierPos(tick.player), now);
+    }
+
+    void onPlacedTick(PlacedTickContext const& tick) override {
+        auto now = static_cast<std::int64_t>(tick.region.getLevel().getCurrentServerTick().tickID);
+        (void)tickWithCooldown(tick.ctx, nullptr, tick.region, BlockPos{tick.x, tick.y, tick.z}, now);
+    }
+
+    std::shared_ptr<ui::Menu> createSettingsMenu(Player& player, UpgradeContext const& ctx) override {
+        return std::make_shared<MagnetMenu>(player, ctx, tierConfig(mAdvanced).filterSlots, mAdvanced);
+    }
+
+    [[nodiscard]] std::vector<std::string> describe(Player& player, UpgradeContext const& ctx) const override {
+        auto s = settings(ctx);
+        return {
+            s.pickupItems ? trFor(player, "abp.magnet.button.pickup_items", "Pickup Items")
+                          : trFor(player, "abp.magnet.button.do_not_pickup_items", "Do Not Pickup Items"),
+            s.pickupXp ? trFor(player, "abp.magnet.button.pickup_xp", "Pickup Experience")
+                       : trFor(player, "abp.magnet.button.do_not_pickup_xp", "Do Not Pickup Experience"),
+        };
+    }
+
+private:
+    UpgradeInfo mInfo;
+    bool        mAdvanced;
+};
+
+} // namespace
+
+// ---- settings menu (chest fallback) ------------------------------------------------------------
+
+namespace {
+core::Filter menuFilter(UpgradeContext const& ctx, int slots, bool advanced) {
+    return Settings::read(ctx.settings(), slots, advanced).filter;
+}
+} // namespace
+
+MagnetMenu::MagnetMenu(Player& player, UpgradeContext const& ctx, int slots, bool advanced)
+: ui::FilterMenu(
+      [&] {
+          auto* type = upgradeFor(ctx.state().item);
+          return type ? displayName(*type, &player) : trFor(player, "abp.filter.title", "Filter");
+      }(),
+      [ctx, slots, advanced] { return menuFilter(ctx, slots, advanced); },
+      [ctx](core::Filter const& f) {
+          auto& j = ctx.settings();
+          if (!j.is_object()) j = nlohmann::json::object();
+          j["filter"] = f.toJson();
+          ctx.saveSettings(true);
+      },
+      ui::FilterMenuOptions{
+          .slots           = slots,
+          .allowModeToggle = true,
+          .allowMatchBy    = advanced,
+          .allowNbt        = advanced,
+          .allowDurability = advanced,
+          .onBack =
+              [bp = ctx.backpackPtr()](Player& p) {
+                  ui::BackpackMenu::openBackpack(p, bp, {}, ui::BackpackMenu::View::Upgrades);
+              },
+      }
+  ),
+  mCtx(ctx) {}
+
+void MagnetMenu::build(Player& player) {
+    FilterMenu::build(player);
+    int  control = size() - 9;
+    auto s       = Settings::read(mCtx.settings(), 1, false);
+    auto toggle  = [this](char const* key) {
+        return [this, key](ui::ClickContext const&) {
+            auto& j = mCtx.settings();
+            if (!j.is_object()) j = nlohmann::json::object();
+            bool v = j.contains(key) && j[key].is_boolean() ? j[key].get<bool>() : true;
+            j[key] = !v;
+            mCtx.saveSettings();
+            invalidate();
+        };
+    };
+    setSlot(
+        control + kItemsButton,
+        std::make_shared<ui::ButtonSlot>(
+            ui::icon(
+                "minecraft:hopper",
+                s.pickupItems ? trFor(player, "abp.magnet.button.pickup_items", "Pickup Items")
+                              : trFor(player, "abp.magnet.button.do_not_pickup_items", "Do Not Pickup Items")
+            ),
+            toggle("pickupItems")
+        )
+    );
+    setSlot(
+        control + kXpButton,
+        std::make_shared<ui::ButtonSlot>(
+            ui::icon(
+                "minecraft:experience_bottle",
+                s.pickupXp ? trFor(player, "abp.magnet.button.pickup_xp", "Pickup Experience")
+                           : trFor(player, "abp.magnet.button.do_not_pickup_xp", "Do Not Pickup Experience"),
+                s.pickupXp ? std::vector<std::string>{"§8§o" + trFor(player, "abp.magnet.button.pickup_xp.detail", "Requires Tank Upgrade")}
+                           : std::vector<std::string>{}
+            ),
+            toggle("pickupXp")
+        )
+    );
+}
+
+// ---- native tab (client: client/ui/tabs/magnet) -----------------------------------------------
+
+namespace {
+
+bool isAdvanced(UpgradeContext const& ctx) {
+    auto* type = upgradeFor(ctx.state().item);
+    return type && type->info().id == kAdvancedId;
+}
+
+void toggle(UpgradeContext const& ctx, char const* key) {
+    auto& j = ctx.settings();
+    if (!j.is_object()) j = nlohmann::json::object();
+    bool v = j.contains(key) && j[key].is_boolean() ? j[key].get<bool>() : true;
+    j[key] = !v;
+    ctx.saveSettings();
+}
+
+ABP_REGISTER_TAB_DATA(net::TabDataProvider{
+    "magnet",
+    [](Player& player, UpgradeContext const& ctx) {
+        bool adv = isAdvanced(ctx);
+        auto s   = Settings::read(ctx.settings(), tierConfig(adv).filterSlots, adv);
+        return nlohmann::json{
+            {"title",       adv ? trFor(player, "abp.magnet.tab.advanced", "Adv. Magnet") : trFor(player, "abp.magnet.tab", "Magnet")},
+            {"tooltip",     adv ? trFor(player, "abp.magnet.tab.advanced.tooltip", "Advanced Magnet Settings")
+                                : trFor(player, "abp.magnet.tab.tooltip", "Magnet Settings")},
+            {"pickupItems", s.pickupItems},
+            {"pickupXp",    s.pickupXp},
+            {"filter",      filtering::tabJson(s.filter, filterSpec(adv))},
+        };
+    },
+});
+
+ABP_REGISTER_TAB_ACTION(net::TabActionHandler{
+    "magnet",
+    [](Player& player, UpgradeContext const& ctx, nlohmann::json const& data) {
+        if (!data.is_object()) return false;
+        bool adv = isAdvanced(ctx);
+        if (data.value("filter", std::string{}) == "filter") {
+            auto spec = filterSpec(adv);
+            auto s    = Settings::read(ctx.settings(), spec.slots, adv);
+            if (filtering::applyAction(s.filter, spec, data, filtering::cursorOf(player))) {
+                filtering::normalize(s.filter, adv ? UpgradeTier::Advanced : UpgradeTier::Basic, spec.slots);
+                ctx.settings()["filter"] = s.filter.toJson();
+                ctx.saveSettings(true);
+            }
+            return true;
+        }
+        auto op = data.value("op", std::string{});
+        if (op == "pickupItems" || op == "pickupXp") {
+            toggle(ctx, op == "pickupItems" ? "pickupItems" : "pickupXp");
+            return true;
+        }
+        return false;
+    },
+});
+
+} // namespace
+
+namespace {
+struct BasicMagnet : MagnetUpgrade {
+    BasicMagnet() : MagnetUpgrade(false) {}
+};
+struct AdvancedMagnet : MagnetUpgrade {
+    AdvancedMagnet() : MagnetUpgrade(true) {}
+};
+} // namespace
+
+} // namespace abp::upgrade::magnet
+
+ABP_REGISTER_UPGRADE(abp::upgrade::magnet::BasicMagnet);
+ABP_REGISTER_UPGRADE(abp::upgrade::magnet::AdvancedMagnet);

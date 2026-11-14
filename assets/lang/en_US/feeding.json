@@ -1,0 +1,13 @@
+{
+  "abp.feeding.name": "Feeding Upgrade",
+  "abp.feeding.advanced.name": "Advanced Feeding upgrade",
+  "abp.feeding.tab": "Feeding",
+  "abp.feeding.tab.advanced": "Adv. Feeding",
+  "abp.feeding.tab.tooltip": "Feeding Settings",
+  "abp.feeding.tab.advanced.tooltip": "Advanced Feeding Settings",
+  "abp.feeding.button.hunger_level_any": "Feed as soon as player is tiny bit hungry\nwastes quite a few hunger points of the food",
+  "abp.feeding.button.hunger_level_half": "Only feed when player is hungry enough\nto only waste half hunger points of the food at most",
+  "abp.feeding.button.hunger_level_full": "Only feed when player is hungry enough\nto not waste any hunger points of the food at all",
+  "abp.feeding.button.feed_immediately_when_hurt": "Feed player immediately when hurt\nIgnores hunger setting when player is not at max health",
+  "abp.feeding.button.do_not_consider_health": "Do not consider health\nIgnores player's health and only feeds based on hunger setting"
+}

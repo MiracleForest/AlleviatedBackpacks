@@ -1,0 +1,23 @@
+{
+  "abp.tank.name": "储罐升级",
+  "abp.tank.tab": "储罐",
+  "abp.tank.tab.tooltip": "储罐",
+  "abp.tank.contents_tooltip": "{} mB/{} mB",
+  "abp.tank.xp_contents_tooltip": "{}/{}级",
+  "abp.tank.slot.input": "输入",
+  "abp.tank.slot.output": "输出",
+  "abp.tank.contents": "§b{}：§f{} §7/ {} mB",
+  "abp.tank.empty": "§7空 §8（{} mB）",
+  "abp.tank.error.two_tanks": "其他升级插槽中已存在2个储罐升级",
+  "abp.tank.error.capacity_high": "背包没有空间加装储罐升级，升级背包或提高堆叠倍数至{}",
+  "abp.columns.needs_occupied_slots": "物品至多在最后{}格，需要给{}预留空间",
+  "abp.tank.fluid.water": "水",
+  "abp.tank.fluid.lava": "熔岩",
+  "abp.tank.fluid.milk": "牛奶",
+  "abp.tank.fluid.powder_snow": "细雪",
+  "abp.tank.fluid.honey": "蜂蜜",
+  "abp.tank.fluid.experience": "经验",
+  "abp.tank.fluid.potion": "药水 #{}",
+  "abp.tank.fluid.splash_potion": "喷溅药水 #{}",
+  "abp.tank.fluid.lingering_potion": "滞留药水 #{}"
+}

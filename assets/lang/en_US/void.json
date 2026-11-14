@@ -1,0 +1,14 @@
+{
+  "abp.void.name": "Void Upgrade",
+  "abp.void.advanced_name": "Advanced Void Upgrade",
+  "abp.void.tab": "Void",
+  "abp.void.tab.advanced": "Adv. Void",
+  "abp.void.tab.tooltip": "Void Settings",
+  "abp.void.tab.advanced.tooltip": "Advanced Void Settings",
+  "abp.void.button.works_in_gui": "Works in GUI as well",
+  "abp.void.button.only_automatic": "Only works with other upgrades/automation",
+  "abp.void.button.void_any": "Void Any",
+  "abp.void.button.void_overflow": "Void Overflow",
+  "abp.void.button.void_overflow.detail": "Lets one slot fill up with the item,\nthen voids any extra that arrives",
+  "abp.void.button.void_anything_disabled": "Voiding everything is turned off on this server"
+}

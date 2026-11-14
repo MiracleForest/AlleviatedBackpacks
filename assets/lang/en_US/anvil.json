@@ -1,0 +1,10 @@
+{
+  "abp.upgrade.anvil.name": "Anvil Upgrade",
+  "abp.anvil.title": "Anvil",
+  "abp.anvil.open": "Anvil",
+  "abp.anvil.cost": "Enchantment Cost: {}",
+  "abp.anvil.too_expensive": "Too Expensive!",
+
+  "abp.station.back": "Back to backpack",
+  "abp.station.contains": "§7Holds: §f{} x{}"
+}

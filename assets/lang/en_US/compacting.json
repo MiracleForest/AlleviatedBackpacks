@@ -1,0 +1,12 @@
+{
+  "abp.compacting.name": "Compacting Upgrade",
+  "abp.compacting.advanced_name": "Advanced Compacting Upgrade",
+  "abp.compacting.tab": "Compa...",
+  "abp.compacting.tab.advanced": "Adv. Compacting",
+  "abp.compacting.tab.tooltip": "Compacting Settings",
+  "abp.compacting.tab.advanced.tooltip": "Advanced Compacting Settings",
+  "abp.compacting.button.compact_only_uncraftable": "Compact Only Uncraftable",
+  "abp.compacting.button.compact_anything": "Compact Anything",
+  "abp.compacting.button.works_in_gui": "Works in GUI as well",
+  "abp.compacting.button.only_automatic": "Only works with other upgrades/automation"
+}

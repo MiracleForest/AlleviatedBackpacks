@@ -1,0 +1,20 @@
+{
+  "abp.inception.error.exists": "There's already Inception Upgrade in another upgrade slot",
+  "abp.inception.name": "Inception Upgrade",
+  "abp.inception.tooltip": "§7Makes it possible to put backpacks into the backpack",
+  "abp.inception.tab": "Inception",
+  "abp.inception.tab.tooltip": "Inception Settings",
+  "abp.inception.inventory_order_main_first": "Upgrades work with inventory\nof main backpack first",
+  "abp.inception.inventory_order_incepted_first": "Upgrades work with inventories\nof backpacks in backpack first",
+  "abp.inception.error.sub_backpack": "Inception upgrade can only be placed in top level backpack",
+  "abp.inception.error.remove_sub_backpack": "There's one or more backpacks in the backpack",
+  "abp.inception.error.open": "That backpack can't be opened.",
+  "abp.inception.back": "Back to the outer backpack",
+  "abp.inception.back_lore": "§7Return to §f{}",
+  "abp.inception.open": "Nested backpacks ({})",
+  "abp.inception.open_label": "Nested backpacks",
+  "abp.inception.open_lore1": "§7Click to open a backpack stored here.",
+  "abp.inception.open_lore2": "§7Tip: press Q on a stored backpack to open it.",
+  "abp.inception.choose": "Open a nested backpack",
+  "abp.inception.none_inside": "There are no backpacks in this backpack."
+}

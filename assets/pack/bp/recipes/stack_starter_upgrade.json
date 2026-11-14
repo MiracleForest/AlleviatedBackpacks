@@ -1,0 +1,33 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "alleviatedbackpacks:stack_starter_upgrade"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "MMM",
+      "MCM",
+      "MMM"
+    ],
+    "key": {
+      "M": {
+        "item": "minecraft:copper_block"
+      },
+      "C": {
+        "item": "alleviatedbackpacks:upgrade_base"
+      }
+    },
+    "unlock": [
+      {
+        "item": "alleviatedbackpacks:upgrade_base"
+      }
+    ],
+    "result": {
+      "item": "alleviatedbackpacks:stack_starter_upgrade",
+      "count": 1
+    }
+  }
+}

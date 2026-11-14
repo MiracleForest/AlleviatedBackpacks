@@ -1,0 +1,352 @@
+#include "upgrade/compacting/CompactingRecipes.h"
+
+#include <atomic>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "ll/api/event/EventBus.h"
+#include "ll/api/event/server/ServerStartedEvent.h"
+#include "ll/api/memory/Hook.h"
+#include "ll/api/service/Bedrock.h"
+
+#include "mc/deps/core/string/HashedString.h"
+#include "mc/deps/nbt/CompoundTag.h"
+#include "mc/world/item/Item.h"
+#include "mc/world/item/ItemInstance.h"
+#include "mc/world/item/ItemStack.h"
+#include "mc/world/item/SaveContext.h"
+#include "mc/world/item/crafting/Recipe.h"
+#include "mc/world/item/crafting/RecipeIngredient.h"
+#include "mc/world/item/crafting/Recipes.h"
+#include "mc/world/level/Level.h"
+
+#include "game/ItemConv.h"
+#include "mod/Log.h"
+#include "mod/Module.h"
+
+namespace abp::upgrade::compacting {
+
+namespace {
+
+constexpr std::string_view kCraftingTag = "crafting_table";
+
+std::atomic<std::uint64_t> gGeneration{1}; // bumped from any thread when recipes reload
+
+struct Cache {
+    std::uint64_t                                                generation = 0;
+    Recipes const*                                               recipes    = nullptr;
+    std::unordered_map<std::string, std::optional<Compaction>>  entries;
+    std::unordered_map<std::string, bool>                       uncompact; ///< uncompactMatches
+    std::unordered_map<std::string, CompactingShapes>           shapes;    ///< compactingShapes
+};
+Cache gCache;
+
+std::string itemKey(core::ItemStackData const& item) {
+    return item.id + '|' + std::to_string(item.aux) + '|' + std::to_string(item.nbtHash());
+}
+
+/// One-count game stack of a recipe result, keeping block states.
+core::ItemStackData toData(ItemInstance const& inst) {
+    if (inst.isNull()) return {};
+    if (auto tag = inst.save(SaveContext{SaveContext::SaveUseCase::SaveToDisk})) {
+        tag->putByte("Count", static_cast<uchar>(1));
+        auto stack = ItemStack::fromTag(*tag);
+        if (!stack.isNull()) return game::ItemConv::toData(stack);
+    }
+    return game::ItemConv::toData(game::ItemConv::make(inst.getTypeName(), 1, inst.getAuxValue()));
+}
+
+/// The (first) result of a plain crafting recipe, or nullptr. Bedrock recipes that leave containers
+/// behind (honey bottles, buckets) list them as further results: see `extraResults`.
+ItemInstance const* singleResult(Recipe const& recipe) {
+    if (recipe.isMultiRecipe()) return nullptr; // data-driven results are fine: all JSON recipes have them
+    auto const& results = recipe.getResultItems();
+    if (results.empty() || results.front().isNull() || results.front().mCount < 1) return nullptr;
+    return &results.front();
+}
+
+/// The recipe's results after the first (Bedrock's form of Java's crafting remainders).
+std::vector<core::ItemStackData> extraResults(Recipe const& recipe) {
+    std::vector<core::ItemStackData> out;
+    auto const&                      results = recipe.getResultItems();
+    for (std::size_t i = 1; i < results.size(); ++i) {
+        auto const& r = results[i];
+        if (r.isNull() || r.mCount < 1) continue;
+        auto d = toData(r);
+        if (d.empty()) continue;
+        d.count = r.mCount;
+        out.push_back(std::move(d));
+    }
+    return out;
+}
+
+/// RecipeHelper `recipe.getRemainingItems(craftingInventory)`: the recipe's extra results, or
+/// else (Java's default) one `craftingRemainingItem` of the item per filled cell.
+std::vector<core::ItemStackData> remainingItems(Recipe const& recipe, ItemStack const& stack, int cells) {
+    auto extra = extraResults(recipe);
+    if (!extra.empty()) return extra;
+    Item const* type = stack.mItem.get();
+    if (!type || !type->mCraftingRemainingItem) return {};
+    Item const& left = *type->mCraftingRemainingItem;
+    auto        d    = game::ItemConv::toData(game::ItemConv::make(left.mFullName->getString(), 1));
+    if (d.empty()) return {};
+    d.count = cells;
+    return {d};
+}
+
+bool sameKind(core::ItemStackData const& a, core::ItemStackData const& b) { return a.id == b.id && a.aux == b.aux; }
+
+/// Recipe::itemValidForRecipe, which takes a crafting context since LeviLamina 26.60 (none here).
+bool validForRecipe(Recipe const& recipe, ItemDescriptor const& ingredient, ItemStack const& stack) {
+#if ABP_LL_VERSION >= 2660
+    return recipe.itemValidForRecipe(ingredient, stack, nullptr);
+#else
+    return recipe.itemValidForRecipe(ingredient, stack);
+#endif
+}
+
+/// True if `recipe` crafts a full `grid` x `grid` square of `stack` (shaped: exactly that size,
+/// every cell one of the item; shapeless: grid * grid ingredients, all accepting the item).
+bool matchesFullGrid(Recipe const& recipe, int grid, ItemStack const& stack) {
+    if (recipe.isShapeless()) {
+        int n = 0;
+        for (auto const& ing : *recipe.mMyIngredients) {
+            if (ing.isNull()) continue;
+            if (!validForRecipe(recipe, ing, stack)) return false;
+            n += std::max<int>(ing.mStackSize, 1);
+        }
+        return n == grid * grid;
+    }
+    if (recipe.mWidth != grid || recipe.mHeight != grid) return false;
+    for (int y = 0; y < grid; ++y) {
+        for (int x = 0; x < grid; ++x) {
+            auto const& ing = recipe.getIngredient(x, y);
+            if (ing.isNull() || ing.mStackSize > 1 || !validForRecipe(recipe, ing, stack)) return false;
+        }
+    }
+    return true;
+}
+
+/// True if one `result` crafts (1x1) back into exactly `count` items of `original`.
+bool isReversible(Recipes const& recipes, core::ItemStackData const& result, core::ItemStackData const& original, int count) {
+    auto resultStack = game::ItemConv::toStack(result, 1);
+    if (resultStack.isNull()) return false;
+    bool found = false;
+    recipes.forEachRecipeFor(HashedString(kCraftingTag), [&](Recipe const& recipe) {
+        if (found) return;
+        auto const* out = singleResult(recipe);
+        if (!out || out->mCount != count) return;
+        RecipeIngredient const* only = nullptr;
+        int                     n    = 0;
+        if (recipe.isShapeless()) {
+            for (auto const& ing : *recipe.mMyIngredients) {
+                if (ing.isNull()) continue;
+                only  = &ing;
+                n    += std::max<int>(ing.mStackSize, 1);
+            }
+        } else {
+            for (int y = 0; y < recipe.mHeight; ++y) {
+                for (int x = 0; x < recipe.mWidth; ++x) {
+                    auto const& ing = recipe.getIngredient(x, y);
+                    if (ing.isNull()) continue;
+                    only  = &ing;
+                    n    += std::max<int>(ing.mStackSize, 1);
+                }
+            }
+        }
+        if (n != 1 || !only || !validForRecipe(recipe, *only, resultStack)) return;
+        if (!sameKind(toData(*out), original)) return;
+        found = true;
+    });
+    return found;
+}
+
+std::optional<Compaction> lookup(Recipes const& recipes, core::ItemStackData const& item, int grid) {
+    auto stack = game::ItemConv::toStack(item, 1);
+    if (stack.isNull() || stack.mUserData || item.damage > 0) return std::nullopt;
+    int inputs = grid * grid;
+    // one matching recipe -> it; several -> the first whose result crafts back into the
+    // item, else the first.
+    std::optional<Compaction> first;
+    std::optional<Compaction> reversible;
+    recipes.forEachRecipeFor(HashedString(kCraftingTag), [&](Recipe const& recipe) {
+        if (reversible) return;
+        auto const* out = singleResult(recipe);
+        if (!out || !matchesFullGrid(recipe, grid, stack)) return;
+        auto result = toData(*out);
+        if (result.empty()) return;
+        result.count = out->mCount;
+        bool       rev = isReversible(recipes, result.withCount(1), item, inputs);
+        Compaction c{result, inputs, rev, remainingItems(recipe, stack, inputs)};
+        if (rev) reversible = c;
+        else if (!first) first = c;
+    });
+    return reversible ? reversible : first;
+}
+
+void dropCache() {
+    gCache.entries.clear();
+    gCache.uncompact.clear();
+    gCache.shapes.clear();
+    gCache.recipes = nullptr;
+}
+
+// Recipes are (re)loaded through Recipes::init (world load, data reload): drop the cache then.
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable" // _AutoHookCount inside the macro
+#endif
+#if ABP_LL_VERSION >= 2660
+// Recipes::init gained an asset work queue and the education options in LeviLamina 26.60.
+LL_TYPE_INSTANCE_HOOK(
+    CompactingRecipesInitHook,
+    ll::memory::HookPriority::Normal,
+    Recipes,
+    &Recipes::init,
+    void,
+    ResourcePackManager&     resourcePackManager,
+    ExternalRecipeStore&     recipeStorage,
+    IAssetLoadWorkQueue&     queue,
+    BaseGameVersion const&   baseGameVersion,
+    Experiments const&       experiments,
+    IEducationOptions const& educationOptions
+) {
+    origin(resourcePackManager, recipeStorage, queue, baseGameVersion, experiments, educationOptions);
+    gGeneration.fetch_add(1);
+}
+#else
+LL_TYPE_INSTANCE_HOOK(
+    CompactingRecipesInitHook,
+    ll::memory::HookPriority::Normal,
+    Recipes,
+    &Recipes::init,
+    void,
+    ResourcePackManager&     resourcePackManager,
+    ExternalRecipeStore&     recipeStorage,
+    BaseGameVersion const&   baseGameVersion,
+    Experiments const&       experiments
+) {
+    origin(resourcePackManager, recipeStorage, baseGameVersion, experiments);
+    gGeneration.fetch_add(1);
+}
+#endif
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
+class CompactingRecipesModule {
+public:
+    void install() {
+        CompactingRecipesInitHook::hook();
+        mStarted = ll::event::EventBus::getInstance().emplaceListener<ll::event::ServerStartedEvent>([](auto&) {
+            gGeneration.fetch_add(1);
+        });
+        gGeneration.fetch_add(1);
+    }
+    void uninstall() {
+        ll::event::EventBus::getInstance().removeListener(mStarted);
+        CompactingRecipesInitHook::unhook();
+        dropCache();
+    }
+
+private:
+    ll::event::ListenerPtr mStarted;
+};
+
+} // namespace
+
+namespace {
+/// The current recipes with a cache that belongs to them (nullptr outside a world).
+Recipes const* currentRecipes() {
+    auto level = ll::service::getLevel();
+    if (!level) return nullptr;
+    Recipes const& recipes = level->getRecipes();
+    auto           gen     = gGeneration.load();
+    if (gCache.generation != gen || gCache.recipes != &recipes) {
+        dropCache();
+        gCache.generation = gen;
+        gCache.recipes    = &recipes;
+    }
+    return &recipes;
+}
+} // namespace
+
+std::optional<Compaction> findCompaction(core::ItemStackData const& item, int gridSize) {
+    if (item.empty() || (gridSize != 2 && gridSize != 3)) return std::nullopt;
+    auto const* rp = currentRecipes();
+    if (!rp) return std::nullopt;
+    Recipes const& recipes = *rp;
+    auto key = itemKey(item) + '#' + std::to_string(gridSize);
+    if (auto it = gCache.entries.find(key); it != gCache.entries.end()) return it->second;
+    std::optional<Compaction> found;
+    try {
+        found = lookup(recipes, item, gridSize);
+    } catch (std::exception const& e) {
+        log().error("compacting recipe lookup for {} failed: {}", item.id, e.what());
+    }
+    gCache.entries.emplace(std::move(key), found);
+    return found;
+}
+
+bool uncompactMatches(core::ItemStackData const& result, core::ItemStackData const& item, int count) {
+    if (result.empty() || item.empty()) return false;
+    auto const* recipes = currentRecipes();
+    if (!recipes) return false;
+    auto key = itemKey(result) + '>' + itemKey(item) + '#' + std::to_string(count);
+    if (auto it = gCache.uncompact.find(key); it != gCache.uncompact.end()) return it->second;
+    bool found = false;
+    try {
+        found = isReversible(*recipes, result.withCount(1), item, count);
+    } catch (std::exception const& e) {
+        log().error("uncompacting recipe lookup for {} failed: {}", result.id, e.what());
+    }
+    gCache.uncompact.emplace(std::move(key), found);
+    return found;
+}
+
+namespace {
+/// `RecipeHelper.isPartOfCompactingLoop` (MAX_FOLLOW_UP_COMPACTING_RECIPES = 30).
+bool isPartOfCompactingLoop(core::ItemStackData const& first, core::ItemStackData const& firstResult) {
+    std::vector<core::ItemStackData> queue{firstResult.withCount(1)};
+    std::vector<core::ItemStackData> seen;
+    int                              iterations = 0;
+    while (!queue.empty()) {
+        auto it = queue.front();
+        queue.erase(queue.begin());
+        for (int grid : {2, 3}) {
+            auto c = findCompaction(it, grid);
+            if (!c) continue;
+            if (sameKind(c->result, first)) return true;
+            for (auto const& s : seen) {
+                if (sameKind(s, c->result)) return false; // a loop the first item isn't part of
+            }
+            queue.push_back(c->result.withCount(1));
+        }
+        seen.push_back(it);
+        if (++iterations > 30) return true; // too many follow-ups to tell: don't compact
+    }
+    return false;
+}
+} // namespace
+
+CompactingShapes compactingShapes(core::ItemStackData const& item) {
+    CompactingShapes out;
+    if (item.empty() || !currentRecipes()) return out;
+    auto key = itemKey(item);
+    if (auto it = gCache.shapes.find(key); it != gCache.shapes.end()) return it->second;
+    for (int grid : {2, 3}) {
+        auto c = findCompaction(item, grid);
+        if (!c || sameKind(c->result, item) || isPartOfCompactingLoop(item, c->result)) continue;
+        (grid == 2 ? out.twoByTwo : out.threeByThree)                       = true;
+        (grid == 2 ? out.twoByTwoUncraftable : out.threeByThreeUncraftable) = c->reversible;
+    }
+    gCache.shapes.emplace(std::move(key), out);
+    return out;
+}
+
+void invalidateCache() { gGeneration.fetch_add(1); }
+
+} // namespace abp::upgrade::compacting
+
+ABP_REGISTER_MODULE(abp::upgrade::compacting::CompactingRecipesModule);

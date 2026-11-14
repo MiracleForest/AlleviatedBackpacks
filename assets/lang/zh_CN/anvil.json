@@ -1,0 +1,10 @@
+{
+  "abp.upgrade.anvil.name": "铁砧升级",
+  "abp.anvil.title": "铁砧",
+  "abp.anvil.open": "铁砧",
+  "abp.anvil.cost": "附魔花费：{}",
+  "abp.anvil.too_expensive": "过于昂贵！",
+
+  "abp.station.back": "返回背包",
+  "abp.station.contains": "§7存放：§f{} x{}"
+}

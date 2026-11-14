@@ -1,0 +1,69 @@
+#pragma once
+
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "core/BackpackInventory.h"
+#include "core/Tier.h"
+
+namespace abp::core {
+
+/// One upgrade slot of a backpack.
+struct UpgradeSlot {
+    ItemStackData  item;           ///< the upgrade item (empty = free slot); its id selects the upgrade type
+    bool           enabled = true; ///< per-upgrade on/off toggle
+    nlohmann::json settings = nlohmann::json::object(); ///< owned by the upgrade implementation
+
+    [[nodiscard]] bool empty() const { return item.empty(); }
+};
+
+/// Default backpack colours (ARGB), as BackpackWrapper.DEFAULT_MAIN_COLOR / DEFAULT_ACCENT_COLOR.
+inline constexpr std::uint32_t kDefaultMainColor   = 0xFFCC613A;
+inline constexpr std::uint32_t kDefaultAccentColor = 0xFF622E1A;
+/// Phase-1 defaults: stored values equal to these are read as the defaults above.
+inline constexpr std::uint32_t kLegacyDefaultMainColor   = 0xFFA0703C;
+inline constexpr std::uint32_t kLegacyDefaultAccentColor = 0xFF5A3C1E;
+/// Everything persisted about one backpack, keyed by `uuid`.
+///
+/// Settings blobs are free-form JSON owned by feature units:
+/// - `UpgradeSlot::settings`: per installed upgrade (travels with the upgrade item when removed).
+/// - `settings`: backpack-wide settings; each unit uses its own top-level key (e.g. "sort").
+
+struct BackpackData {
+    static constexpr int kVersion = 1; ///< bump + add a migration in `fromJson` on format changes
+
+    std::string              uuid;
+    Tier                     tier        = Tier::Leather;
+    std::uint32_t            mainColor   = kDefaultMainColor;   ///< ARGB
+    std::uint32_t            accentColor = kDefaultAccentColor; ///< ARGB
+    BackpackInventory        inventory;
+    std::vector<UpgradeSlot> upgrades;
+    /// Storage columns taken by upgrade inventory parts (`IUpgradeItem.getInventoryColumnsTaken`:
+    /// 2 per Tank and Battery upgrade). The inventory then has `capacity::slotsAfterColumns(base, columnsTaken)`
+    /// slots, where `base` is the tier's layout (see `baseStorageSlots`).
+    int                      columnsTaken = 0;
+    nlohmann::json           settings = nlohmann::json::object();
+
+    /// A fresh backpack of `tier` with the tier's slot counts.
+    [[nodiscard]] static BackpackData create(std::string uuid, Tier tier);
+
+    /// Changes tier, growing (never shrinking) storage and upgrade slots. Storage grows to the tier's
+    /// slots minus the rows x `columnsTaken` taken by upgrade inventory parts.
+    void setTier(Tier t);
+
+    /// Storage slots of the layout before upgrade inventory parts took columns (
+    /// `BackpackWrapper.getNumberOfInventorySlots`): the inventory size plus the taken columns'
+    /// slots. Tank and battery capacities (per `getNumberOfSlotRows`) follow from this.
+    [[nodiscard]] int baseStorageSlots() const;
+
+    [[nodiscard]] nlohmann::json toJson() const;
+    /// Returns nullopt for unreadable data (wrong type, newer version, bad tier).
+    [[nodiscard]] static std::optional<BackpackData> fromJson(nlohmann::json const& j);
+
+    [[nodiscard]] std::string                        serialize() const;
+    [[nodiscard]] static std::optional<BackpackData> deserialize(std::string_view text);
+};
+
+} // namespace abp::core

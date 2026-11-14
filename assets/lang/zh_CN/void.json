@@ -1,0 +1,14 @@
+{
+  "abp.void.name": "虚空升级",
+  "abp.void.advanced_name": "高级虚空升级",
+  "abp.void.tab": "虚空",
+  "abp.void.tab.advanced": "高级虚空",
+  "abp.void.tab.tooltip": "虚空设置",
+  "abp.void.tab.advanced.tooltip": "高级虚空设置",
+  "abp.void.button.works_in_gui": "在GUI中工作",
+  "abp.void.button.only_automatic": "仅与其他升级/自动化方式（如漏斗）配合工作",
+  "abp.void.button.void_any": "全部销毁",
+  "abp.void.button.void_overflow": "销毁溢出",
+  "abp.void.button.void_overflow.detail": "物品可先占满一个槽位，\n之后再进入的多余部分会被销毁",
+  "abp.void.button.void_anything_disabled": "本服务器已关闭“全部销毁”"
+}
