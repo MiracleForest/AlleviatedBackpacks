@@ -1,6 +1,6 @@
 format = 4
 id = "github.com/MiracleForest/AlleviatedBackpacks"
-version = "0.1.0"
+version = "0.1.1"
 
 [info]
 name = "AlleviatedBackpacks"
@@ -16,8 +16,12 @@ logo = "https://raw.githubusercontent.com/MiracleForest/AlleviatedBackpacks/main
 # The default variant is the newest supported line on both sides. There is no "client" variant:
 # lip and LeviLauncher pick the server or the client entry of a variant by the side they install on.
 #
-# LeviLamina's releases are still tooth.json packages, whose client build is their "client"
-# variant, so the client entries depend on github.com/LiteLDev/LeviLamina#client.
+# LeviLamina 26.60.8 and later are lip.toml packages: their default variant holds both builds and
+# they have no "client" variant. Releases up to 26.60.7, and every 26.51 release, are tooth.json
+# packages whose client build is the variant "client" and whose default variant is the server
+# build. So the 26.60 client entries depend on plain LeviLamina from 26.60.8 on (an older default
+# variant would install the server build on a client), and the 26.51 client entries depend on
+# LeviLamina#client.
 
 # --- 26.60 (Minecraft 1.26.60) ------------------------------------------------------------------
 
@@ -39,7 +43,7 @@ platform = "win-x64"
 preserve = ["mods/AlleviatedBackpacks/config/"]
 
 [variants."".deps]
-"github.com/LiteLDev/LeviLamina#client" = "26.60.*"
+"github.com/LiteLDev/LeviLamina" = ">=26.60.8 <26.61.0"
 
 [[variants."".assets]]
 type = "mcmod"
@@ -63,7 +67,7 @@ platform = "win-x64"
 preserve = ["mods/AlleviatedBackpacks/config/"]
 
 [variants."26_60".deps]
-"github.com/LiteLDev/LeviLamina#client" = "26.60.*"
+"github.com/LiteLDev/LeviLamina" = ">=26.60.8 <26.61.0"
 
 [[variants."26_60".assets]]
 type = "mcmod"
